@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aryan Harkawat</title>
+<meta name="description" content="Aryan Harkawat. CS at UT Austin. Backend infrastructure, load balancing, ML serving. Stripe Core Infrastructure intern.">
+<meta property="og:title" content="Aryan Harkawat">
+<meta property="og:description" content="Backend infrastructure and ML serving. CS at UT Austin, Stripe Core Infrastructure.">
+<meta property="og:image" content="https://aryanharkawat.com/assets/clouds.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23111'/><text x='50' y='68' font-size='54' text-anchor='middle' fill='%23fff' font-family='Georgia,serif'>A</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="name" href="#">Aryan Harkawat</a>
+  <nav>
+    <a href="#work">Work</a>
+    <a href="#projects">Projects</a>
+    <a href="#about">About</a>
+    <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="hero">
+  <h1>I build the parts of the backend that decide where requests go.</h1>
+  <p class="lede">
+    CS at UT Austin, class of 2028. Last summer I rebuilt load balancing in Stripe's service mesh.
+    Since then I've been applying the same ideas to LLM serving. I'm going back to Stripe in spring 2027.
+  </p>
+  <p class="links">
+    <a href="https://github.com/harkawataryan">GitHub</a>
+    <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
+    <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>
+  </p>
+</section>
+
+<section id="work">
+  <h2>Work</h2>
+
+  <article class="entry">
+    <div class="meta">
+      <span class="org">Stripe</span>
+      <span class="role">Software Engineer Intern, Core Infrastructure</span>
+      <span class="when">Summer 2026 · returning Spring 2027</span>
+    </div>
+    <div class="body">
+      <p>Worked on the service mesh that routes traffic between Stripe's internal services. The mesh picked backends in a way that couldn't tell when one was overloaded, so I rebuilt it around power-of-two-choices weighted by the CPU and queue depth each backend reports. Overload errors dropped 40% across 50+ services handling 400M+ requests a day, and the services could stop over-provisioning for their hottest replica, which came to roughly $200K a year.</p>
+      <p>Then added zone-aware routing that spills traffic to neighboring zones when one gets hot, cutting p99 latency 23%, and ran the production rollout through feature-flagged canary ramps gated on error and latency metrics. No incidents.</p>
+    </div>
+  </article>
+
+  <article class="entry">
+    <div class="meta">
+      <span class="org">Trend Micro</span>
+      <span class="role">Software Automation Intern</span>
+      <span class="when">2025 – 2026</span>
+    </div>
+    <div class="body">
+      <p>Python data pipelines for internal workflows: a scheduled ETL for payroll reconciliation with schema validation and fuzzy record matching across Excel and shared-drive sources, and a network log pipeline that sessionizes raw logs into SQL for Power BI dashboards.</p>
+    </div>
+  </article>
+
+  <article class="entry">
+    <div class="meta">
+      <span class="org">Mercor</span>
+      <span class="role">Machine Learning Intern</span>
+      <span class="when">Spring 2025</span>
+    </div>
+    <div class="body">
+      <p>Benchmarked six fine-tuned BERT variants with a reusable Hugging Face evaluation script, exported the best to ONNX with int8 quantization for 3× faster CPU inference, and wrote the data checks that removed 5% noisy labels from a 1M+ ticket dataset, raising baseline F1 by 2 points.</p>
+    </div>
+  </article>
+</section>
+
+<section id="projects">
+  <h2>Projects</h2>
+
+  <article class="project">
+    <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
+    <div class="text">
+      <h3>Herd <span class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</span></h3>
+      <p>An OpenAI-compatible inference gateway for self-hosted LLM servers. It routes each request by live KV-cache utilization and prefix-cache affinity, sheds and queues by criticality and tenant, spills over to a cloud provider within a budget, and runs as an Envoy ext_proc endpoint picker.</p>
+      <p>I built it to see whether the Stripe approach holds up when request cost depends on prompt length and what's already cached. On an 8-replica benchmark it cut p99 time-to-first-token 55% versus round-robin, and with two degraded replicas it held p99 at 12.6s where round-robin reached 292s.</p>
+      <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
+    </div>
+  </article>
+
+  <article class="project">
+    <a class="shot" href="https://concertify-cm6k.onrender.com"><img src="assets/concertify.jpg" alt="Concertify recommendations page" loading="lazy" width="1200" height="675"></a>
+    <div class="text">
+      <h3>Concertify <span class="stack">Go · Python · PyTorch · Node.js · Redis</span></h3>
+      <p>Finds concerts near you and ranks them by how much you actually listen to the artists. Two-stage retrieval and ranking over Spotify listening history and Ticketmaster events, with a Go gRPC ranking service and per-user weights trained in PyTorch from thumbs up and down. 500+ users.</p>
+      <p>The interesting part was the upstream quota: Ticketmaster allows 5 requests a second, so cold recommendations went from 9s to 2.5s through a single-flight Redis cache, priority rate limiting and async profile warming.</p>
+      <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
+    </div>
+  </article>
+
+  <article class="project">
+    <a class="shot" href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer"><img src="assets/clouds.jpg" alt="Rendered clouds seen from above the layer" loading="lazy" width="1200" height="675"></a>
+    <div class="text">
+      <h3>Volumetric Cloud Renderer <span class="stack">C++ · OpenGL · GLSL</span></h3>
+      <p>Real-time clouds, ray-marched through 3D Perlin-Worley noise generated by compute shaders, with a multiple-scattering lighting approximation. The cloud pass renders at half resolution and a temporal pass reprojects each frame against the last, which makes it 3.5× cheaper for the same converged image.</p>
+      <p>Built mostly to understand real-time graphics. Renders headless through EGL, so the screenshots and CI run on a CPU rasterizer.</p>
+      <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
+    </div>
+  </article>
+</section>
+
+<section id="about">
+  <h2>About</h2>
+  <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
+  <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
+  <p>The best way to reach me is <a href="mailto:harkawat.aryan@gmail.com">email</a>.</p>
+</section>
+
+</main>
+
+<footer>
+  <span>Aryan Harkawat · Austin, TX</span>
+  <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a></span>
+</footer>
+
+</body>
+</html>
