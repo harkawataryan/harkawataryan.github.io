@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%2307070a'/><text x='50' y='70' font-size='58' text-anchor='middle' fill='%23ff2d55' font-family='Georgia,serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -22,7 +22,6 @@
   <a class="name" href="#">Aryan Harkawat</a>
   <nav>
     <a href="#work">Work</a>
-    <a href="#routing">Routing</a>
     <a href="#projects">Projects</a>
     <a href="#about">About</a>
     <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a>
@@ -80,34 +79,9 @@
   </article>
 </section>
 
-<section id="routing" class="reveal">
-  <h2><span class="num">02</span>Why the routing policy matters</h2>
-  <p class="intro">
-    Eight backends, two of them running at half capacity. Requests arrive at random. Pick a policy and watch
-    where the queues build up. This is a small simulation, not the production system, but the shape of the
-    result is the same one I saw at Stripe and in Herd.
-  </p>
-
-  <div class="sim">
-    <div class="sim-controls" role="tablist" aria-label="Routing policy">
-      <button class="pol active" data-policy="rr" role="tab" aria-selected="true">Round robin</button>
-      <button class="pol" data-policy="lc" role="tab" aria-selected="false">Least connections</button>
-      <button class="pol" data-policy="p2c" role="tab" aria-selected="false">P2C by utilization</button>
-      <label class="load"><span>Load</span><input id="rps" type="range" min="12" max="32" step="1" value="20"><output id="rpsOut">20 rps</output></label>
-    </div>
-    <canvas id="simcanvas" width="1200" height="420" aria-label="Load balancing simulation"></canvas>
-    <div class="sim-stats">
-      <div><span class="k">p50 latency</span><span class="v" id="p50">–</span></div>
-      <div><span class="k">p99 latency</span><span class="v" id="p99">–</span></div>
-      <div><span class="k">shed (queue full)</span><span class="v" id="shed">0</span></div>
-      <div><span class="k">served</span><span class="v" id="served">0</span></div>
-    </div>
-    <p class="sim-note" id="simnote">Round robin gives every backend an equal share, so the two slow ones fall behind and never catch up.</p>
-  </div>
-</section>
 
 <section id="projects" class="reveal">
-  <h2><span class="num">03</span>Projects</h2>
+  <h2><span class="num">02</span>Projects</h2>
 
   <article class="project">
     <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
@@ -141,7 +115,7 @@
 </section>
 
 <section id="about" class="reveal">
-  <h2><span class="num">04</span>About</h2>
+  <h2><span class="num">03</span>About</h2>
   <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
   <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
   <p>The best way to reach me is <a href="mailto:harkawat.aryan@gmail.com">email</a>.</p>
@@ -154,9 +128,8 @@
   <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a> · <a href="https://aryanh.goatcounter.com" rel="nofollow">Stats</a></span>
 </footer>
 
-<script src="grid.js?v=7" defer></script>
-<script src="sim.js?v=7" defer></script>
-<script src="site.js?v=7" defer></script>
+<script src="grid.js?v=8" defer></script>
+<script src="site.js?v=8" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
