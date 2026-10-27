@@ -73,12 +73,12 @@
 
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   function draw() {
-    const fg = css('--fg'), muted = css('--muted'), line = css('--line'), accent = css('--accent'), warn = css('--accent2');
+    const fg = css('--fg'), muted = css('--muted'), line = css('--line'), accent = css('--red'), warn = css('--violet');
     ctx.clearRect(0, 0, W, H);
     const left = 40, right = W - 40, gw = (right - left) / N, barW = gw * 0.52;
     const baseY = H - 70, top = 90;
     // gateway
-    ctx.fillStyle = fg; ctx.font = '500 15px Inter, system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = fg; ctx.font = '13px "Space Mono", ui-monospace, monospace'; ctx.textAlign = 'center';
     ctx.fillRect(W / 2 - 60, 24, 120, 30);
     ctx.fillStyle = css('--bg'); ctx.fillText('gateway', W / 2, 45);
     // in-flight dots
@@ -101,11 +101,11 @@
         ctx.fillStyle = s < b.active.length ? fg : line;
         ctx.fillRect(cx - barW / 2 + s * (barW / CONC) + 1, baseY - 14, barW / CONC - 2, 10);
       }
-      ctx.fillStyle = muted; ctx.font = '12px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillStyle = muted; ctx.font = '11px "Space Mono", ui-monospace, monospace';
       ctx.fillText(`b${i + 1}${b.cap < 1 ? ' ½' : ''}`, cx, baseY + 18);
       ctx.fillText(`q=${b.queue.length}`, cx, baseY + 36);
     }
-    ctx.fillStyle = muted; ctx.font = '12px Inter, system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = muted; ctx.font = '11px "Space Mono", ui-monospace, monospace'; ctx.textAlign = 'left';
     ctx.fillText('bar = queue depth · squares = in-flight slots · ½ = half-capacity backend', left, H - 8);
   }
 
