@@ -19,8 +19,4 @@
   }, { rootMargin: '0px 0px -10% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-  // Hide the shader hint on touch devices, where there is no mouse to move.
-  if (window.matchMedia('(hover: none)').matches) {
-    const h = document.getElementById('skyhint'); if (h) h.textContent = 'The sky is a live shader.';
-  }
 })();
