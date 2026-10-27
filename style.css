@@ -114,6 +114,7 @@ h3 .stack { display: block; font-family: "Space Mono", ui-monospace, monospace; 
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .lede { font-size: 18px; max-width: 600px; color: var(--muted); }
+.lede a { color: var(--fg); }
 .links a { margin-right: 20px; font-family: "Space Mono", ui-monospace, monospace; font-size: 13px; }
 p { margin: 0 0 14px; }
 .intro { max-width: 680px; color: var(--muted); }
