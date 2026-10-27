@@ -3,18 +3,20 @@
 
   // GoatCounter custom events. Each becomes a row in the Pages list.
   // No-ops when the counter script is blocked or hasn't loaded.
-  function track(path, title) {
+  function track(path) {
     if (!window.goatcounter || !window.goatcounter.count) return;
-    window.goatcounter.count({ path: path, title: title || path, event: true });
+    window.goatcounter.count({ path: path, title: path, event: true });
   }
 
-  // Scroll reveal, and a "section/<id>" event the first time each section is seen.
+  // Scroll reveal, and remember the deepest section the visitor reached.
+  const order = ['top', 'work', 'projects', 'about'];
+  let deepest = 0;
   const io = new IntersectionObserver((es) => {
     for (const e of es) {
       if (!e.isIntersecting) continue;
       e.target.classList.add('in');
       io.unobserve(e.target);
-      if (e.target.id) track('section/' + e.target.id);
+      deepest = Math.max(deepest, order.indexOf(e.target.id));
     }
   }, { rootMargin: '0px 0px -10% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
@@ -38,16 +40,17 @@
     track('click/' + label);
   }, { passive: true });
 
-  // Time on page, bucketed, sent once when the page is hidden or unloaded.
+  // One summary event per visit, sent when the page is hidden or unloaded:
+  // visit/<deepest section>/<time bucket>.
   const start = Date.now();
   let sent = false;
-  function sendTime() {
+  function sendSummary() {
     if (sent) return;
     sent = true;
     const s = (Date.now() - start) / 1000;
-    const bucket = s < 10 ? '0-10s' : s < 30 ? '10-30s' : s < 60 ? '30-60s' : s < 180 ? '1-3m' : s < 600 ? '3-10m' : '10m+';
-    track('time/' + bucket);
+    const bucket = s < 3 ? '0-3s' : s < 8 ? '3-8s' : s < 20 ? '8-20s' : s < 60 ? '20-60s' : s < 180 ? '1-3m' : '3m+';
+    track('visit/' + order[deepest] + '/' + bucket);
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendTime(); });
-  window.addEventListener('pagehide', sendTime);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendSummary(); });
+  window.addEventListener('pagehide', sendSummary);
 })();
