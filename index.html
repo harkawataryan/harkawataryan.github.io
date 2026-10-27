@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,39 +8,46 @@
 <meta property="og:title" content="Aryan Harkawat">
 <meta property="og:description" content="Backend infrastructure and ML serving. CS at UT Austin, Stripe Core Infrastructure.">
 <meta property="og:image" content="https://aryanh.dev/assets/clouds.jpg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23111'/><text x='50' y='68' font-size='54' text-anchor='middle' fill='%23fff' font-family='Georgia,serif'>A</text></svg>">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230b0d12'/><text x='50' y='68' font-size='54' text-anchor='middle' fill='%23fff' font-family='Georgia,serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div class="skywrap" aria-hidden="true"><canvas id="sky"></canvas></div>
 
 <header class="top">
   <a class="name" href="#">Aryan Harkawat</a>
   <nav>
     <a href="#work">Work</a>
+    <a href="#routing">Routing</a>
     <a href="#projects">Projects</a>
     <a href="#about">About</a>
     <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a>
+    <button id="theme" type="button" aria-label="Toggle theme" title="Toggle theme">◐</button>
   </nav>
 </header>
 
 <main>
 
 <section class="hero">
+  <p class="eyebrow">CS at UT Austin · Stripe Core Infrastructure · Austin, TX</p>
   <h1>I build the parts of the backend that decide where requests go.</h1>
   <p class="lede">
-    CS at UT Austin, class of 2028. Last summer I rebuilt load balancing in Stripe's service mesh.
-    Since then I've been applying the same ideas to LLM serving. I'm going back to Stripe in spring 2027.
+    Last summer I rebuilt load balancing in Stripe's service mesh. Since then I've been applying the same ideas to
+    LLM serving, and, for fun, to rendering the clouds behind this text.
   </p>
   <p class="links">
     <a href="https://github.com/harkawataryan">GitHub</a>
     <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
     <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>
   </p>
+  <p class="hint" id="skyhint">The sky is a live shader. Move the mouse to move the sun.</p>
 </section>
 
-<section id="work">
+<section id="work" class="reveal">
   <h2>Work</h2>
 
   <article class="entry">
@@ -78,7 +85,33 @@
   </article>
 </section>
 
-<section id="projects">
+<section id="routing" class="reveal">
+  <h2>Why the routing policy matters</h2>
+  <p class="intro">
+    Eight backends, two of them running at half capacity. Requests arrive at random. Pick a policy and watch
+    where the queues build up. This is a small simulation, not the production system, but the shape of the
+    result is the same one I saw at Stripe and in Herd.
+  </p>
+
+  <div class="sim">
+    <div class="sim-controls" role="tablist" aria-label="Routing policy">
+      <button class="pol active" data-policy="rr" role="tab" aria-selected="true">Round robin</button>
+      <button class="pol" data-policy="lc" role="tab" aria-selected="false">Least connections</button>
+      <button class="pol" data-policy="p2c" role="tab" aria-selected="false">P2C by utilization</button>
+      <label class="load"><span>Load</span><input id="rps" type="range" min="12" max="32" step="1" value="20"><output id="rpsOut">20 rps</output></label>
+    </div>
+    <canvas id="simcanvas" width="1200" height="420" aria-label="Load balancing simulation"></canvas>
+    <div class="sim-stats">
+      <div><span class="k">p50 latency</span><span class="v" id="p50">–</span></div>
+      <div><span class="k">p99 latency</span><span class="v" id="p99">–</span></div>
+      <div><span class="k">shed (queue full)</span><span class="v" id="shed">0</span></div>
+      <div><span class="k">served</span><span class="v" id="served">0</span></div>
+    </div>
+    <p class="sim-note" id="simnote">Round robin gives every backend an equal share, so the two slow ones fall behind and never catch up.</p>
+  </div>
+</section>
+
+<section id="projects" class="reveal">
   <h2>Projects</h2>
 
   <article class="project">
@@ -106,13 +139,13 @@
     <div class="text">
       <h3>Volumetric Cloud Renderer <span class="stack">C++ · OpenGL · GLSL</span></h3>
       <p>Real-time clouds, ray-marched through 3D Perlin-Worley noise generated by compute shaders, with a multiple-scattering lighting approximation. The cloud pass renders at half resolution and a temporal pass reprojects each frame against the last, which makes it 3.5× cheaper for the same converged image.</p>
-      <p>Built mostly to understand real-time graphics. Renders headless through EGL, so the screenshots and CI run on a CPU rasterizer.</p>
+      <p>The sky at the top of this page is a much smaller cousin: a single-layer 2D version in WebGL, about 60 lines of GLSL.</p>
       <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
     </div>
   </article>
 </section>
 
-<section id="about">
+<section id="about" class="reveal">
   <h2>About</h2>
   <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
   <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
@@ -123,8 +156,12 @@
 
 <footer>
   <span>Aryan Harkawat · Austin, TX</span>
-  <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a></span>
+  <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a> · <a href="https://aryanh.goatcounter.com" rel="nofollow">Stats</a></span>
 </footer>
 
+<script src="sky.js" defer></script>
+<script src="sim.js" defer></script>
+<script src="site.js" defer></script>
+<script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
