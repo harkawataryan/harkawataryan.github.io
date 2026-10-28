@@ -8,15 +8,15 @@
 <meta property="og:title" content="Aryan Harkawat">
 <meta property="og:description" content="Backend infrastructure and ML serving. CS at UT Austin, Stripe Core Infrastructure.">
 <meta property="og:image" content="https://aryanh.dev/assets/clouds.jpg">
-<meta name="theme-color" content="#07070a">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%2307070a'/><text x='50' y='70' font-size='58' text-anchor='middle' fill='%23ff2d55' font-family='Georgia,serif'>A</text></svg>">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
-<div class="gridwrap" aria-hidden="true"><canvas id="grid"></canvas></div>
+<div class="wrap">
 
 <header class="top">
   <a class="name" href="#">Aryan Harkawat</a>
@@ -32,18 +32,27 @@
 <main>
 
 <section class="hero">
-  <p class="eyebrow"><span class="dot"></span>Austin, TX · UT Austin CS '28</p>
-  <h1>Aryan <em>Harkawat</em></h1>
-  <p class="jot">prev @ <a href="#work">Stripe</a> · <a href="#work">Trend Micro</a> · <a href="#work">Mercor</a></p>
-  <p class="links">
-    <a href="https://github.com/harkawataryan">GitHub</a>
-    <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
-    <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>
-  </p>
+  <h1>Aryan<br>Harkawat</h1>
+  <div class="side">
+    <p class="jot">prev @ <a href="#work">Stripe</a> · <a href="#work">Trend Micro</a> · <a href="#work">Mercor</a></p>
+    <p><b>CS at UT Austin, class of 2028.</b> Backend infrastructure: service meshes, load balancers, and lately LLM serving.</p>
+    <p class="links">
+      <a href="https://github.com/harkawataryan">GitHub</a>
+      <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
+      <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>
+    </p>
+  </div>
 </section>
 
-<section id="work" class="reveal">
-  <h2><span class="num">01</span>Work</h2>
+<section class="stats" aria-label="Highlights">
+  <div><span class="n">400M+</span><span class="l">requests a day through load balancing I rebuilt at Stripe</span></div>
+  <div><span class="n">−55%</span><span class="l">p99 time-to-first-token in Herd versus round-robin</span></div>
+  <div><span class="n">500+</span><span class="l">users on Concertify</span></div>
+</section>
+
+<section id="work" class="row">
+  <h2><i>01</i>Work</h2>
+  <div class="col">
 
   <article class="entry">
     <div class="meta">
@@ -78,48 +87,51 @@
       <p>Benchmarked six fine-tuned BERT variants with a reusable Hugging Face evaluation script, exported the best to ONNX with int8 quantization for 3× faster CPU inference, and wrote the data checks that removed 5% noisy labels from a 1M+ ticket dataset, raising baseline F1 by 2 points.</p>
     </div>
   </article>
+
+  </div>
 </section>
 
-
-<section id="projects" class="reveal">
-  <h2><span class="num">02</span>Projects</h2>
+<section id="projects" class="row">
+  <h2><i>02</i>Projects</h2>
+  <div class="col projects">
 
   <article class="project">
     <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
-    <div class="text">
-      <h3>Herd <span class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</span></h3>
-      <p>An OpenAI-compatible inference gateway for self-hosted LLM servers. It routes each request by live KV-cache utilization and prefix-cache affinity, sheds and queues by criticality and tenant, spills over to a cloud provider within a budget, and runs as an Envoy ext_proc endpoint picker.</p>
-      <p>I built it to see whether the Stripe approach holds up when request cost depends on prompt length and what's already cached. On an 8-replica benchmark it cut p99 time-to-first-token 55% versus round-robin, and with two degraded replicas it held p99 at 12.6s where round-robin reached 292s.</p>
-      <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
-    </div>
+    <h3>Herd</h3>
+    <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
+    <p>An OpenAI-compatible inference gateway for self-hosted LLM servers. It routes each request by live KV-cache utilization and prefix-cache affinity, sheds and queues by criticality and tenant, spills over to a cloud provider within a budget, and runs as an Envoy ext_proc endpoint picker.</p>
+    <p>Built to see whether the Stripe approach holds up when request cost depends on prompt length and cache state. On an 8-replica benchmark it cut p99 time-to-first-token 55% versus round-robin, and with two degraded replicas it held p99 at 12.6s where round-robin reached 292s.</p>
+    <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
   </article>
 
   <article class="project">
     <a class="shot" href="https://concertify-cm6k.onrender.com"><img src="assets/concertify.jpg" alt="Concertify recommendations page" loading="lazy" width="1200" height="675"></a>
-    <div class="text">
-      <h3>Concertify <span class="stack">Go · Python · PyTorch · Node.js · Redis</span></h3>
-      <p>Finds concerts near you and ranks them by how much you actually listen to the artists. Two-stage retrieval and ranking over Spotify listening history and Ticketmaster events, with a Go gRPC ranking service and per-user weights trained in PyTorch from thumbs up and down. 500+ users.</p>
-      <p>The interesting part was the upstream quota: Ticketmaster allows 5 requests a second, so cold recommendations went from 9s to 2.5s through a single-flight Redis cache, priority rate limiting and async profile warming.</p>
-      <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
-    </div>
+    <h3>Concertify</h3>
+    <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
+    <p>Finds concerts near you and ranks them by how much you actually listen to the artists. Two-stage retrieval and ranking over Spotify listening history and Ticketmaster events, with a Go gRPC ranking service and per-user weights trained in PyTorch from thumbs up and down. 500+ users.</p>
+    <p>The interesting part was the upstream quota: Ticketmaster allows 5 requests a second, so cold recommendations went from 9s to 2.5s through a single-flight Redis cache, priority rate limiting and async profile warming.</p>
+    <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
   </article>
 
   <article class="project">
     <a class="shot" href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer"><img src="assets/clouds.jpg" alt="Rendered clouds seen from above the layer" loading="lazy" width="1200" height="675"></a>
-    <div class="text">
-      <h3>Volumetric Cloud Renderer <span class="stack">C++ · OpenGL · GLSL</span></h3>
-      <p>Real-time clouds, ray-marched through 3D Perlin-Worley noise generated by compute shaders, with a multiple-scattering lighting approximation. The cloud pass renders at half resolution and a temporal pass reprojects each frame against the last, which makes it 3.5× cheaper for the same converged image.</p>
-      <p>Built mostly to understand real-time graphics. Renders headless through EGL, so the screenshots and CI run on a CPU rasterizer.</p>
-      <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
-    </div>
+    <h3>Volumetric Cloud Renderer</h3>
+    <p class="stack">C++ · OpenGL · GLSL</p>
+    <p>Real-time clouds, ray-marched through 3D Perlin-Worley noise generated by compute shaders, with a multiple-scattering lighting approximation. The cloud pass renders at half resolution and a temporal pass reprojects each frame against the last, which makes it 3.5× cheaper for the same converged image.</p>
+    <p>Built mostly to understand real-time graphics. Renders headless through EGL, so the screenshots and CI run on a CPU rasterizer.</p>
+    <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
   </article>
+
+  </div>
 </section>
 
-<section id="about" class="reveal">
-  <h2><span class="num">03</span>About</h2>
-  <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
-  <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
-  <p>The best way to reach me is <a href="mailto:harkawat.aryan@gmail.com">email</a>.</p>
+<section id="about" class="row">
+  <h2><i>03</i>About</h2>
+  <div class="col prose">
+    <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
+    <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
+    <p>The best way to reach me is <a href="mailto:harkawat.aryan@gmail.com">email</a>.</p>
+  </div>
 </section>
 
 </main>
@@ -129,8 +141,9 @@
   <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a></span>
 </footer>
 
-<script src="grid.js?v=11" defer></script>
-<script src="site.js?v=11" defer></script>
+</div>
+
+<script src="site.js?v=12" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

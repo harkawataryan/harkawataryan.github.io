@@ -1,25 +1,21 @@
 (function () {
-  document.documentElement.classList.add('js');
-
-  // GoatCounter custom events. Each becomes a row in the Pages list.
-  // No-ops when the counter script is blocked or hasn't loaded.
+  // GoatCounter custom events. No-ops when the counter is blocked.
   function track(path) {
     if (!window.goatcounter || !window.goatcounter.count) return;
     window.goatcounter.count({ path: path, title: path, event: true });
   }
 
-  // Scroll reveal, and remember the deepest section the visitor reached.
+  // Deepest section reached.
   const order = ['top', 'work', 'projects', 'about'];
   let deepest = 0;
   const io = new IntersectionObserver((es) => {
     for (const e of es) {
       if (!e.isIntersecting) continue;
-      e.target.classList.add('in');
       io.unobserve(e.target);
       deepest = Math.max(deepest, order.indexOf(e.target.id));
     }
   }, { rootMargin: '0px 0px -10% 0px' });
-  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  document.querySelectorAll('section[id]').forEach((el) => io.observe(el));
 
   // Outbound and file clicks: "click/<label>", with the project name when inside a card.
   document.addEventListener('click', (ev) => {
@@ -30,18 +26,16 @@
     let label;
     if (href.startsWith('mailto:')) label = 'email';
     else if (href.endsWith('.pdf')) label = 'resume';
-    else if (href.includes('goatcounter.com')) return;
     else {
       const card = a.closest('.project');
-      const name = card ? card.querySelector('h3').firstChild.textContent.trim().toLowerCase().replace(/\s+/g, '-') : null;
+      const name = card ? card.querySelector('h3').textContent.trim().toLowerCase().replace(/\s+/g, '-') : null;
       const text = a.textContent.trim().toLowerCase();
       label = name ? name + '/' + text : text;
     }
     track('click/' + label);
   }, { passive: true });
 
-  // One summary event per visit, sent when the page is hidden or unloaded:
-  // visit/<deepest section>/<time bucket>.
+  // One summary event per visit: visit/<deepest section>/<time bucket>.
   const start = Date.now();
   let sent = false;
   function sendSummary() {
