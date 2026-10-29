@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 
@@ -100,7 +100,7 @@
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
 
-    <p>A gateway in front of self-hosted LLM servers that speaks the OpenAI API. It sends each request to a replica that already has the prompt cached, or else the one with the most free KV-cache, and sheds low-priority work when everything is full. On an 8-replica benchmark it cut p99 time to first token 55% compared to round-robin, and with two slow replicas it held at 12.6 seconds while round-robin hit 292.</p>
+    <p>OpenAI-compatible gateway in front of self-hosted LLM servers. Routes each request to the replica that already holds the prompt in its KV cache, otherwise to the one with the most free cache, and sheds low-priority requests under load. On an 8-replica benchmark, p99 time to first token fell 55% versus round-robin. With two slow replicas it held at 12.6s where round-robin reached 292s.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
   </article>
 
@@ -109,7 +109,7 @@
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
 
-    <p>Finds concerts near you and ranks them by how much you actually listen to each artist on Spotify, with thumbs up and down tuning the ranking for each person. More than 500 people have used it. The hard part was Ticketmaster's limit of 5 requests a second, and a Redis cache that collapses duplicate requests plus a rate limiter that fetches what's on screen first cut the first load from 9 seconds to 2.5.</p>
+    <p>Ranks upcoming concerts by how much you listen to each artist on Spotify, with thumbs up and down tuning the weights per user. 500+ users. Ticketmaster allows 5 requests a second, so a Redis cache that collapses duplicate requests and a priority limiter that fetches on-screen results first brought the first load from 9s to 2.5s.</p>
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
   </article>
 
@@ -118,7 +118,7 @@
     <h3>Volumetric Cloud Renderer</h3>
     <p class="stack">C++ · OpenGL · GLSL</p>
 
-    <p>Real-time volumetric clouds, made to learn graphics. It marches rays through 3D noise generated on the GPU and lights them with an approximation of multiple scattering, which is what gives clouds their soft, bright edges. Drawing the clouds at half resolution and reusing the previous frame for the rest makes it about 3.5× cheaper with no visible difference.</p>
+    <p>Real-time volumetric clouds in C++ and OpenGL. Ray-marches through Perlin-Worley noise generated in compute shaders and lights it with a multiple-scattering approximation, which gives the soft, bright edges. Rendering at half resolution with temporal reprojection from the previous frame makes it about 3.5× cheaper with no visible difference.</p>
     <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
   </article>
 
@@ -143,7 +143,7 @@
 
 </div>
 
-<script src="site.js?v=13" defer></script>
+<script src="site.js?v=14" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
