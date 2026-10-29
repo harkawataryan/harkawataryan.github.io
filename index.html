@@ -94,7 +94,7 @@
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
 
-    <p>OpenAI-compatible gateway in front of self-hosted LLM servers. Routes each request to the replica that already holds the prompt in its KV cache, otherwise to the one with the most free cache, and sheds low-priority requests under load. On an 8-replica benchmark, p99 time to first token fell 55% versus round-robin. With two slow replicas it held at 12.6s where round-robin reached 292s.</p>
+    <p>A load balancer for teams running their own LLMs across several GPU servers. Apps send it normal OpenAI-style API requests and it picks which server answers each one. It prefers a server that already has the prompt cached, so it can skip redoing that work, then the one with the most free memory, and drops low-priority requests when every server is full. On an 8-server benchmark it cut p99 time to first token 55% compared to round-robin. With two slow servers it held at 12.6s while round-robin hit 292s.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
   </article>
 
