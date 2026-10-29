@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aryan Harkawat</title>
-<meta name="description" content="Aryan Harkawat. CS at UT Austin. Backend infrastructure, load balancing, ML serving. Stripe Core Infrastructure intern.">
+<meta name="description" content="Aryan Harkawat, CS at UT Austin. I work on backend infrastructure, mostly load balancing and routing. Previously at Stripe, Trend Micro and Mercor.">
 <meta property="og:title" content="Aryan Harkawat">
-<meta property="og:description" content="Backend infrastructure and ML serving. CS at UT Austin, Stripe Core Infrastructure.">
+<meta property="og:description" content="CS at UT Austin. Backend infrastructure, mostly load balancing and routing. Previously at Stripe.">
 <meta property="og:image" content="https://aryanh.dev/assets/clouds.jpg">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
@@ -35,7 +35,7 @@
   <h1>Aryan<br>Harkawat</h1>
   <div class="side">
     <p class="jot">prev @ <a href="#work">Stripe</a> · <a href="#work">Trend Micro</a> · <a href="#work">Mercor</a></p>
-    <p><b>CS at UT Austin, class of 2028.</b> Backend infrastructure: service meshes, load balancers, and lately LLM serving.</p>
+    <p><b>CS at UT Austin, class of 2028.</b> I work on backend infrastructure, mostly on how traffic gets routed between services. Herd, further down, takes the same idea to LLM inference.</p>
     <p class="links">
       <a href="https://github.com/harkawataryan">GitHub</a>
       <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
@@ -45,9 +45,9 @@
 </section>
 
 <section class="stats" aria-label="Highlights">
-  <div><span class="n">400M+</span><span class="l">requests a day through load balancing I rebuilt at Stripe</span></div>
-  <div><span class="n">−55%</span><span class="l">p99 time-to-first-token in Herd versus round-robin</span></div>
-  <div><span class="n">500+</span><span class="l">users on Concertify</span></div>
+  <div><span class="n">400M+</span><span class="l">requests a day go through the load balancer I rebuilt at Stripe</span></div>
+  <div><span class="n">−55%</span><span class="l">p99 time to first token with Herd, compared to round-robin</span></div>
+  <div><span class="n">500+</span><span class="l">people have used Concertify</span></div>
 </section>
 
 <section id="work" class="row">
@@ -58,11 +58,11 @@
     <div class="meta">
       <span class="org">Stripe</span>
       <span class="role">Software Engineer Intern, Core Infrastructure</span>
-      <span class="when">Summer 2026 · returning Spring 2027</span>
+      <span class="when">Summer 2026 · back in Spring 2027</span>
     </div>
     <div class="body">
-      <p>Worked on the service mesh that routes traffic between Stripe's internal services. The mesh picked backends in a way that couldn't tell when one was overloaded, so I rebuilt it around power-of-two-choices weighted by the CPU and queue depth each backend reports. Overload errors dropped 40% across 50+ services handling 400M+ requests a day, and the services could stop over-provisioning for their hottest replica, which came to roughly $200K a year.</p>
-      <p>Then added zone-aware routing that spills traffic to neighboring zones when one gets hot, cutting p99 latency 23%, and ran the production rollout through feature-flagged canary ramps gated on error and latency metrics. No incidents.</p>
+      <p>I was on the team that runs Stripe's service mesh, the layer every request between internal services passes through. Its load balancer had no idea how busy a backend was, so it kept sending traffic to servers that were already struggling. I rebuilt it around power-of-two-choices, so it picks two backends at random and sends the request to whichever is less loaded, based on the CPU and queue depth each one reports. Overload errors fell 40% across 50 services that handle over 400M requests a day, and with load spread evenly, teams could drop the spare replicas they had been keeping as headroom, which saved about $200K a year.</p>
+      <p>The second piece was saturation routing. A backend that's full turns requests away early so the mesh can retry them somewhere else, and when a whole zone runs hot, traffic spills over to the next one. Together they cut p99 latency 23%, and both rolled out behind feature flags in small canary stages with no incidents.</p>
     </div>
   </article>
 
@@ -73,7 +73,7 @@
       <span class="when">2025 – 2026</span>
     </div>
     <div class="body">
-      <p>Python data pipelines for internal workflows: a scheduled ETL for payroll reconciliation with schema validation and fuzzy record matching across Excel and shared-drive sources, and a network log pipeline that sessionizes raw logs into SQL for Power BI dashboards.</p>
+      <p>I built a pipeline that groups raw network logs into sessions in SQL, which feed Power BI dashboards that surface unusual activity. Before that, payroll reconciliation was being done by hand in Excel, so I replaced it with a scheduled Python job that matches records across spreadsheets and shared drives and flags anything that doesn't line up.</p>
     </div>
   </article>
 
@@ -84,7 +84,7 @@
       <span class="when">Spring 2025</span>
     </div>
     <div class="body">
-      <p>Benchmarked six fine-tuned BERT variants with a reusable Hugging Face evaluation script, exported the best to ONNX with int8 quantization for 3× faster CPU inference, and wrote the data checks that removed 5% noisy labels from a 1M+ ticket dataset, raising baseline F1 by 2 points.</p>
+      <p>The team had six fine-tuned BERT models for classifying support tickets, and comparing them by hand took about a day. I wrote an evaluation harness that did it in under an hour, then exported the winner to ONNX and quantized it to int8, which made inference 3× faster on CPU. Cleaning the 1M-ticket training set helped too, since removing duplicate and conflicting labels raised F1 by 2 points.</p>
     </div>
   </article>
 
@@ -99,8 +99,8 @@
     <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
-    <p>An OpenAI-compatible inference gateway for self-hosted LLM servers. It routes each request by live KV-cache utilization and prefix-cache affinity, sheds and queues by criticality and tenant, spills over to a cloud provider within a budget, and runs as an Envoy ext_proc endpoint picker.</p>
-    <p>Built to see whether the Stripe approach holds up when request cost depends on prompt length and cache state. On an 8-replica benchmark it cut p99 time-to-first-token 55% versus round-robin, and with two degraded replicas it held p99 at 12.6s where round-robin reached 292s.</p>
+    <p>A gateway that sits in front of a pool of self-hosted LLM servers and speaks the OpenAI API. I built it to see how the Stripe approach holds up when request cost varies wildly and a server that has already cached a prompt can answer it much faster. Herd sends each request to a replica that already has the prompt's prefix cached, unless that replica is overloaded, in which case it picks the one with the most free KV-cache. When everything is busy it drops low-priority requests first, keeps one tenant from starving the others, and can overflow to a cloud provider up to a set budget. It runs as an Envoy external processor, so it fits into an existing mesh.</p>
+    <p>On an 8-replica benchmark it cut p99 time to first token 55% compared to round-robin. With two replicas deliberately slowed down, round-robin's p99 time to first token climbed to 292 seconds while Herd's stayed at 12.6.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
   </article>
 
@@ -108,8 +108,8 @@
     <a class="shot" href="https://concertify-cm6k.onrender.com"><img src="assets/concertify.jpg" alt="Concertify recommendations page" loading="lazy" width="1200" height="675"></a>
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
-    <p>Finds concerts near you and ranks them by how much you actually listen to the artists. Two-stage retrieval and ranking over Spotify listening history and Ticketmaster events, with a Go gRPC ranking service and per-user weights trained in PyTorch from thumbs up and down. 500+ users.</p>
-    <p>The interesting part was the upstream quota: Ticketmaster allows 5 requests a second, so cold recommendations went from 9s to 2.5s through a single-flight Redis cache, priority rate limiting and async profile warming.</p>
+    <p>Finds concerts near you and ranks them by how much you actually listen to each artist on Spotify. Shows come from Ticketmaster through a Node API, a Go service scores them on artist and genre overlap, and a last pass mixes genres so the top of the list isn't ten versions of the same thing. Thumbs up and down retrain a small PyTorch model that adjusts the ranking for each person. More than 500 people have used it.</p>
+    <p>The hard part was Ticketmaster's limit of 5 requests a second, which made the first load take 9 seconds. I got it down to 2.5 seconds with a Redis cache that collapses duplicate requests, a rate limiter that spends the request budget on what's on screen first, and background warming for each profile.</p>
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
   </article>
 
@@ -117,8 +117,8 @@
     <a class="shot" href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer"><img src="assets/clouds.jpg" alt="Rendered clouds seen from above the layer" loading="lazy" width="1200" height="675"></a>
     <h3>Volumetric Cloud Renderer</h3>
     <p class="stack">C++ · OpenGL · GLSL</p>
-    <p>Real-time clouds, ray-marched through 3D Perlin-Worley noise generated by compute shaders, with a multiple-scattering lighting approximation. The cloud pass renders at half resolution and a temporal pass reprojects each frame against the last, which makes it 3.5× cheaper for the same converged image.</p>
-    <p>Built mostly to understand real-time graphics. Renders headless through EGL, so the screenshots and CI run on a CPU rasterizer.</p>
+    <p>Real-time volumetric clouds. The renderer marches rays through 3D noise generated on the GPU and lights it with an approximation of multiple scattering, which is what gives real clouds their soft, bright edges. To stay fast it draws the clouds at half resolution and reuses the previous frame to fill in the rest, which makes it about 3.5× cheaper with no visible difference once the image settles.</p>
+    <p>I made it to learn real-time graphics. It also runs on a software renderer, so the screenshots here and the CI tests come from an ordinary server with no GPU.</p>
     <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
   </article>
 
@@ -128,9 +128,9 @@
 <section id="about" class="row">
   <h2><i>03</i>About</h2>
   <div class="col prose">
-    <p>I'm a junior studying computer science at UT Austin. I like problems where correctness is measurable and the fix ships to real traffic: load balancing, caching, queuing, the plumbing between services. Lately that has meant model serving, where the same questions show up with a different cost model.</p>
-    <p>I work in Go, Python, C++ and Java, and I've spent a lot of time with gRPC, Kubernetes, Envoy, Redis and Prometheus. Outside of work I co-authored a peer-reviewed astronomy paper on galaxy morphology from SDSS data, which is where I first learned to be careful with statistics.</p>
-    <p>The best way to reach me is <a href="mailto:harkawat.aryan@gmail.com">email</a>.</p>
+    <p>I like backend problems where you can measure whether the fix worked, usually ones about where requests go or why a queue is backing up. Most of my code is Go, Python and C++, with some Java.</p>
+    <p>Outside CS, I co-authored a peer-reviewed astronomy paper on how galaxy shapes change with mass and environment, using data from the Sloan Digital Sky Survey.</p>
+    <p>Email me at <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>.</p>
   </div>
 </section>
 
