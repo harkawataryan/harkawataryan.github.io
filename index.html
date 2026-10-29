@@ -55,8 +55,8 @@
       <span class="when">Summer 2026 · back in Spring 2027</span>
     </div>
     <div class="body">
-      <p>Worked on the service mesh, which carries every request between Stripe's internal services. Rebuilt its load balancer around power-of-two-choices using the CPU and queue depth each backend reports, instead of routing blind. Overload errors dropped 40% across 50 services at 400M+ requests a day, and teams could cut the spare replicas they kept as headroom, about $200K a year.</p>
-      <p>Added saturation routing on top: a full backend rejects excess requests early and the mesh retries them elsewhere, spilling to a neighboring zone when a whole zone runs hot. p99 latency fell 23%. Both shipped behind feature flags through staged canaries.</p>
+      <p>Worked on the service mesh that carries every request between Stripe's internal services. Rebuilt its load balancer around power-of-two-choices, picking between two backends by the CPU and queue depth each one reports so traffic stops piling onto servers that are already overloaded. Overload errors dropped 40% across 50 services at 400M+ requests a day, and teams could cut the spare replicas they kept as headroom, saving about $200K a year.</p>
+      <p>Added saturation routing on top, where an overloaded backend rejects excess requests early and the mesh reroutes them, spilling to a neighboring zone when a whole zone runs hot. That cut p99 latency 23%. Also built a replay harness that runs sampled production traffic through a simulated fleet and scores each routing change on latency and errors before it ships, which caught two regressions before rollout.</p>
     </div>
   </article>
 
@@ -67,7 +67,7 @@
       <span class="when">2025 – 2026</span>
     </div>
     <div class="body">
-      <p>Built a Python pipeline that turns raw network logs into SQL sessions feeding Power BI dashboards used to spot unusual activity. Also replaced a manual Excel payroll reconciliation with a nightly Python job that matches records across spreadsheets and shared drives and reports anything that doesn't line up.</p>
+      <p>Built a Python test harness that runs about 1,500 regression tests on the endpoint security agent across Windows and Linux VMs every night. Release testing went from a week to a day, and the harness caught more than 30 bugs before they reached customers. Also automated payroll reconciliation with a nightly pipeline that matches around 12K records across Excel and shared-drive sources and flags mismatches for audit, which brought the monthly close from days to under an hour.</p>
     </div>
   </article>
 
@@ -78,7 +78,7 @@
       <span class="when">Spring 2025</span>
     </div>
     <div class="body">
-      <p>Wrote an evaluation harness for six fine-tuned BERT ticket classifiers that cut model comparison from a day to under an hour, and it picked the model that went to production. Exported it to ONNX with int8 quantization for 3× faster CPU inference. Cleaned duplicate and conflicting labels out of the 1M-ticket training set, which raised F1 by 2 points.</p>
+      <p>Built an evaluation harness with Hugging Face Transformers that benchmarked six fine-tuned BERT ticket classifiers and picked the one that went to production, turning a day of manual comparison into under an hour. Quantized that model to 8-bit with ONNX Runtime, which tripled CPU throughput to about 140 tickets a second and removed the need for GPU inference. Also wrote Pandas checks that removed duplicate and conflicting labels from more than 1M training tickets, raising F1 by 2 points.</p>
     </div>
   </article>
 
