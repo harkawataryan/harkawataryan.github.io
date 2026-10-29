@@ -65,7 +65,10 @@ h1 {
 .hero .side b { color: var(--fg); font-weight: 500; }
 .jot { font-family: "Inter Tight", Inter, sans-serif; font-weight: 600; font-size: 22px; color: var(--fg); }
 .jot a { border: 0; }
-.jot a:first-child { color: var(--acc); }
+.jot a { white-space: nowrap; }
+.jot .logo { width: 1em; height: 1em; margin-right: .3em; vertical-align: -0.14em; }
+.jot .logo-tm { color: #D71920; }
+.jot .wordmark { height: 1.15em; width: auto; vertical-align: -0.3em; }
 .links a { margin-right: 16px; }
 
 /* ---- sections ---- */
