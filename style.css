@@ -31,6 +31,7 @@ img { max-width: 100%; height: auto; display: block; }
   justify-content: space-between;
   align-items: center;
   padding: 28px 0;
+  gap: 24px;
   border-bottom: 1px solid var(--rule);
   font-family: "Inter Tight", Inter, sans-serif;
   font-weight: 600;
@@ -118,13 +119,18 @@ footer a { border: 0; }
 }
 @media (max-width: 680px) {
   .wrap { padding: 0 20px; }
-  .top { padding: 20px 0; font-size: 13px; }
-  .top nav { gap: 14px; }
-  .top nav a:nth-child(3) { display: none; }
+  /* The hero already shows the name in large type, so on phones the bar is
+     just the links, spread across the full width. */
+  .top { padding: 18px 0; font-size: 13px; }
+  .top .name { display: none; }
+  .top nav { flex: 1; justify-content: space-between; gap: 12px; }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 56px 0 40px; }
   .jot { font-size: 18px; }
   .row { grid-template-columns: 1fr; gap: 20px; padding: 40px 0; }
   .entry { grid-template-columns: 1fr; gap: 8px; }
   .projects { grid-template-columns: 1fr; gap: 36px; }
   footer { flex-direction: column; }
+}
+@media (max-width: 360px) {
+  .top { font-size: 12px; letter-spacing: 0.02em; }
 }
