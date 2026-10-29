@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -61,8 +61,8 @@
       <span class="when">Summer 2026 · back in Spring 2027</span>
     </div>
     <div class="body">
-      <p>I was on the team that runs Stripe's service mesh, the layer every request between internal services passes through. Its load balancer had no idea how busy a backend was, so it kept sending traffic to servers that were already struggling. I rebuilt it around power-of-two-choices, so it picks two backends at random and sends the request to whichever is less loaded, based on the CPU and queue depth each one reports. Overload errors fell 40% across 50 services that handle over 400M requests a day, and with load spread evenly, teams could drop the spare replicas they had been keeping as headroom, which saved about $200K a year.</p>
-      <p>The second piece was saturation routing. A backend that's full turns requests away early so the mesh can retry them somewhere else, and when a whole zone runs hot, traffic spills over to the next one. Together they cut p99 latency 23%, and both rolled out behind feature flags in small canary stages with no incidents.</p>
+      <p>Worked on the service mesh, which carries every request between Stripe's internal services. Rebuilt its load balancer around power-of-two-choices using the CPU and queue depth each backend reports, instead of routing blind. Overload errors dropped 40% across 50 services at 400M+ requests a day, and teams could cut the spare replicas they kept as headroom, about $200K a year.</p>
+      <p>Added saturation routing on top: a full backend rejects excess requests early and the mesh retries them elsewhere, spilling to a neighboring zone when a whole zone runs hot. p99 latency fell 23%. Both shipped behind feature flags through staged canaries.</p>
     </div>
   </article>
 
@@ -73,7 +73,7 @@
       <span class="when">2025 – 2026</span>
     </div>
     <div class="body">
-      <p>I built a pipeline that groups raw network logs into sessions in SQL, which feed Power BI dashboards that surface unusual activity. Before that, payroll reconciliation was being done by hand in Excel, so I replaced it with a scheduled Python job that matches records across spreadsheets and shared drives and flags anything that doesn't line up.</p>
+      <p>Built a Python pipeline that turns raw network logs into SQL sessions feeding Power BI dashboards used to spot unusual activity. Also replaced a manual Excel payroll reconciliation with a nightly Python job that matches records across spreadsheets and shared drives and reports anything that doesn't line up.</p>
     </div>
   </article>
 
@@ -84,7 +84,7 @@
       <span class="when">Spring 2025</span>
     </div>
     <div class="body">
-      <p>The team had six fine-tuned BERT models for classifying support tickets, and comparing them by hand took about a day. I wrote an evaluation harness that did it in under an hour, then exported the winner to ONNX and quantized it to int8, which made inference 3× faster on CPU. Cleaning the 1M-ticket training set helped too, since removing duplicate and conflicting labels raised F1 by 2 points.</p>
+      <p>Wrote an evaluation harness for six fine-tuned BERT ticket classifiers that cut model comparison from a day to under an hour, and it picked the model that went to production. Exported it to ONNX with int8 quantization for 3× faster CPU inference. Cleaned duplicate and conflicting labels out of the 1M-ticket training set, which raised F1 by 2 points.</p>
     </div>
   </article>
 
@@ -143,7 +143,7 @@
 
 </div>
 
-<script src="site.js?v=12" defer></script>
+<script src="site.js?v=13" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
