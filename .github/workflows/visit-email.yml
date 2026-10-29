@@ -1,0 +1,39 @@
+name: Email visit summaries
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly; GoatCounter allows one export per hour
+  workflow_dispatch:
+
+concurrency:
+  group: visit-email
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      # state.json (last exported hit and visits still in progress) is carried
+      # between runs in the Actions cache under a fresh key each run.
+      - uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: visit-state-${{ github.run_id }}
+          restore-keys: visit-state-
+
+      - run: python3 .github/scripts/visit_email.py
+        env:
+          GOATCOUNTER_TOKEN: ${{ secrets.GOATCOUNTER_TOKEN }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state.json
+          key: visit-state-${{ github.run_id }}
