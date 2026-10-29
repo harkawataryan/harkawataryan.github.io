@@ -9,8 +9,9 @@ export doesn't arrive as two emails.
 State (last exported hit id and held rows) lives in state.json, carried
 between runs by the Actions cache.
 
-Env: GOATCOUNTER_TOKEN, GMAIL_ADDRESS, GMAIL_APP_PASSWORD, optional
-NOTIFY_TO (defaults to GMAIL_ADDRESS) and DRY_RUN=1 to print instead of send.
+Env: GOATCOUNTER_TOKEN, NOTIFY_TO (where emails go), and either
+RESEND_API_KEY (sends through resend.com) or GMAIL_ADDRESS plus
+GMAIL_APP_PASSWORD. DRY_RUN=1 prints instead of sending.
 """
 
 import csv
@@ -156,11 +157,26 @@ def send(subject, body):
     if os.environ.get("DRY_RUN"):
         print("=" * 60, "\nSubject:", subject, "\n" + body)
         return
+    to = os.environ.get("NOTIFY_TO") or os.environ.get("GMAIL_ADDRESS")
+    text = body + "\nStats: " + SITE + "\n"
+    if os.environ.get("RESEND_API_KEY"):
+        # Without a verified domain, Resend only delivers from its onboarding
+        # address to the email the Resend account was created with.
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            method="POST",
+            data=json.dumps({"from": "aryanh.dev <onboarding@resend.dev>", "to": [to], "subject": subject, "text": text}).encode(),
+            headers={"Authorization": "Bearer " + os.environ["RESEND_API_KEY"], "Content-Type": "application/json",
+                     "User-Agent": "aryanh-visit-email"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            r.read()
+        return
     msg = EmailMessage()
     msg["From"] = os.environ["GMAIL_ADDRESS"]
-    msg["To"] = os.environ.get("NOTIFY_TO") or os.environ["GMAIL_ADDRESS"]
+    msg["To"] = to
     msg["Subject"] = subject
-    msg.set_content(body + "\nStats: " + SITE + "\n")
+    msg.set_content(text)
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
         s.login(os.environ["GMAIL_ADDRESS"], os.environ["GMAIL_APP_PASSWORD"])
         s.send_message(msg)
