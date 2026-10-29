@@ -99,8 +99,8 @@
     <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
-    <p>A gateway that sits in front of a pool of self-hosted LLM servers and speaks the OpenAI API. I built it to see how the Stripe approach holds up when request cost varies wildly and a server that has already cached a prompt can answer it much faster. Herd sends each request to a replica that already has the prompt's prefix cached, unless that replica is overloaded, in which case it picks the one with the most free KV-cache. When everything is busy it drops low-priority requests first, keeps one tenant from starving the others, and can overflow to a cloud provider up to a set budget. It runs as an Envoy external processor, so it fits into an existing mesh.</p>
-    <p>On an 8-replica benchmark it cut p99 time to first token 55% compared to round-robin. With two replicas deliberately slowed down, round-robin's p99 time to first token climbed to 292 seconds while Herd's stayed at 12.6.</p>
+
+    <p>A gateway in front of self-hosted LLM servers that speaks the OpenAI API. It sends each request to a replica that already has the prompt cached, or else the one with the most free KV-cache, and sheds low-priority work when everything is full. On an 8-replica benchmark it cut p99 time to first token 55% compared to round-robin, and with two slow replicas it held at 12.6 seconds while round-robin hit 292.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
   </article>
 
@@ -108,8 +108,8 @@
     <a class="shot" href="https://concertify-cm6k.onrender.com"><img src="assets/concertify.jpg" alt="Concertify recommendations page" loading="lazy" width="1200" height="675"></a>
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
-    <p>Finds concerts near you and ranks them by how much you actually listen to each artist on Spotify. Shows come from Ticketmaster through a Node API, a Go service scores them on artist and genre overlap, and a last pass mixes genres so the top of the list isn't ten versions of the same thing. Thumbs up and down retrain a small PyTorch model that adjusts the ranking for each person. More than 500 people have used it.</p>
-    <p>The hard part was Ticketmaster's limit of 5 requests a second, which made the first load take 9 seconds. I got it down to 2.5 seconds with a Redis cache that collapses duplicate requests, a rate limiter that spends the request budget on what's on screen first, and background warming for each profile.</p>
+
+    <p>Finds concerts near you and ranks them by how much you actually listen to each artist on Spotify, with thumbs up and down tuning the ranking for each person. More than 500 people have used it. The hard part was Ticketmaster's limit of 5 requests a second, and a Redis cache that collapses duplicate requests plus a rate limiter that fetches what's on screen first cut the first load from 9 seconds to 2.5.</p>
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
   </article>
 
@@ -117,8 +117,8 @@
     <a class="shot" href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer"><img src="assets/clouds.jpg" alt="Rendered clouds seen from above the layer" loading="lazy" width="1200" height="675"></a>
     <h3>Volumetric Cloud Renderer</h3>
     <p class="stack">C++ · OpenGL · GLSL</p>
-    <p>Real-time volumetric clouds. The renderer marches rays through 3D noise generated on the GPU and lights it with an approximation of multiple scattering, which is what gives real clouds their soft, bright edges. To stay fast it draws the clouds at half resolution and reuses the previous frame to fill in the rest, which makes it about 3.5× cheaper with no visible difference once the image settles.</p>
-    <p>I made it to learn real-time graphics. It also runs on a software renderer, so the screenshots here and the CI tests come from an ordinary server with no GPU.</p>
+
+    <p>Real-time volumetric clouds, made to learn graphics. It marches rays through 3D noise generated on the GPU and lights them with an approximation of multiple scattering, which is what gives clouds their soft, bright edges. Drawing the clouds at half resolution and reusing the previous frame for the rest makes it about 3.5× cheaper with no visible difference.</p>
     <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
   </article>
 
@@ -128,7 +128,7 @@
 <section id="about" class="row">
   <h2><i>03</i>About</h2>
   <div class="col prose">
-    <p>I like backend problems where you can measure whether the fix worked, usually ones about where requests go or why a queue is backing up. Most of my code is Go, Python and C++, with some Java.</p>
+    <p>I like backend problems where you can measure whether the fix worked, usually ones about where requests go or why a queue is backing up. Most of my code is Python, Java, C++ and Go.</p>
     <p>Outside CS, I co-authored a peer-reviewed astronomy paper on how galaxy shapes change with mass and environment, using data from the Sloan Digital Sky Survey.</p>
     <p>Email me at <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>.</p>
   </div>
