@@ -67,18 +67,6 @@ h1 {
 .jot a:first-child { color: var(--acc); }
 .links a { margin-right: 16px; }
 
-/* ---- now strip ---- */
-.now {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 28px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--rule);
-  font-size: 14px;
-  color: var(--muted);
-}
-.now .k { font-family: "Inter Tight", Inter, sans-serif; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--acc); }
-
 /* ---- sections ---- */
 .row {
   padding: 56px 0;
@@ -135,7 +123,6 @@ footer a { border: 0; }
   .top nav a:nth-child(3) { display: none; }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 56px 0 40px; }
   .jot { font-size: 18px; }
-  .now { flex-direction: column; gap: 6px; }
   .row { grid-template-columns: 1fr; gap: 20px; padding: 40px 0; }
   .entry { grid-template-columns: 1fr; gap: 8px; }
   .projects { grid-template-columns: 1fr; gap: 36px; }
