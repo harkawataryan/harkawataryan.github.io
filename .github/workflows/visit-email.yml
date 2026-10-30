@@ -2,7 +2,7 @@ name: Email visit summaries
 
 on:
   schedule:
-    - cron: "17 * * * *" # hourly; GoatCounter allows one export per hour
+    - cron: "23 * * * *" # hourly; GoatCounter allows one export per hour
   workflow_dispatch:
 
 concurrency:
