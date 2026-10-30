@@ -558,7 +558,7 @@ button, input { font: inherit; color: inherit; }
       start();
     } catch (e) {
       token = null;
-      $('#gateErr').textContent = e.auth ? 'That token was rejected.' : 'Could not reach GoatCounter.';
+      $('#gateErr').textContent = e.auth ? 'That token was rejected.' : 'Could not reach GoatCounter. An ad or tracker blocker is the usual cause; turn it off for this site.';
     } finally {
       btn.disabled = false;
     }
