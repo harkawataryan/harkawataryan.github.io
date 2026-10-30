@@ -1,8 +1,9 @@
 name: Email visit summaries
 
+# Started hourly by cron-job.org through the workflow_dispatch API, since
+# GitHub's own schedule skipped most hours. GoatCounter allows one export
+# per hour, so keep it to one trigger.
 on:
-  schedule:
-    - cron: "23 * * * *" # hourly; GoatCounter allows one export per hour
   workflow_dispatch:
 
 concurrency:
