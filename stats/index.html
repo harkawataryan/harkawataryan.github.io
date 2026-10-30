@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Analytics · aryanh.dev</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><path d='M22 72 42 46 58 58 80 28' stroke='%233b82f6' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #000;
+  --card: #0a0a0a;
+  --raise: #161616;
+  --line: #1f1f1f;
+  --line2: #2e2e2e;
+  --fg: #ededed;
+  --muted: #a1a1a1;
+  --dim: #6e6e6e;
+  --blue: #3b82f6;
+  --red: #f87171;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body { font: 14px/1.45 Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+
+/* ---- sign in ---- */
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.gate form { width: 100%; max-width: 360px; display: grid; gap: 12px; }
+.gate h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+.gate input { width: 100%; background: var(--card); border: 1px solid var(--line2); border-radius: 8px; padding: 10px 12px; outline: none; }
+.gate input:focus { border-color: var(--muted); }
+.btn { background: var(--fg); color: #000; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 500; cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: default; }
+.err { color: var(--red); font-size: 13px; min-height: 18px; margin: 0; }
+
+/* ---- layout ---- */
+.app { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.bar h1 { font-size: 20px; font-weight: 600; margin: 0 auto 0 0; letter-spacing: -.01em; }
+.bar h1 span { color: var(--dim); font-weight: 400; }
+.seg { display: inline-flex; border: 1px solid var(--line2); border-radius: 8px; overflow: hidden; }
+.seg button { background: none; border: 0; padding: 6px 12px; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line2); }
+.seg button[aria-pressed="true"] { background: var(--raise); color: var(--fg); }
+.ghost { background: none; border: 1px solid var(--line2); border-radius: 8px; padding: 6px 12px; color: var(--muted); cursor: pointer; }
+.ghost:hover, .seg button:hover { color: var(--fg); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+
+/* ---- overview ---- */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.tile { padding: 18px 20px; border-right: 1px solid var(--line); }
+.tile:last-child { border-right: 0; }
+.tile .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.tile .v { font-size: 30px; font-weight: 600; margin-top: 4px; letter-spacing: -.02em; }
+.tile .sub { color: var(--dim); font-size: 12px; margin-top: 2px; }
+.chart { position: relative; height: 320px; padding: 16px 12px 8px 4px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart text { fill: var(--dim); font-size: 11px; font-family: Geist, sans-serif; }
+.tip { position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; font-size: 12px; white-space: nowrap; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
+.tip b { font-weight: 600; }
+.tip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); margin-right: 6px; }
+.tip .when { color: var(--muted); margin-top: 2px; }
+
+/* ---- panels ---- */
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.panel { display: flex; flex-direction: column; min-height: 300px; }
+.phead { display: flex; align-items: center; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.phead .tab { background: none; border: 0; padding: 14px 6px 12px; margin-right: 10px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
+.phead .tab[aria-selected="true"] { color: var(--fg); border-color: var(--fg); }
+.phead .col { margin-left: auto; color: var(--dim); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.rows { list-style: none; margin: 0; padding: 8px; display: grid; gap: 2px; overflow-y: auto; max-height: 340px; }
+.row { position: relative; display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; overflow: hidden; }
+.row .fill { position: absolute; inset: 0 auto 0 0; background: var(--raise); border-radius: 6px; }
+.row .lbl, .row .cnt { position: relative; }
+.row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .lbl small { color: var(--dim); margin-left: 6px; }
+.row .cnt { color: var(--fg); }
+.empty { color: var(--dim); padding: 24px 18px; font-size: 13px; }
+.note { color: var(--dim); font-size: 12px; padding: 0 18px 12px; margin-top: auto; }
+
+/* ---- activity ---- */
+.act { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; max-height: 420px; }
+.act li { display: grid; grid-template-columns: 132px 1fr; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--line); }
+.act li:first-child { border-top: 0; }
+.act .t { color: var(--muted); }
+.act .t small { display: block; color: var(--dim); font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px; }
+.chip { border: 1px solid var(--line2); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
+.chip.pv { color: var(--fg); }
+.chip.click { color: #93c5fd; border-color: #1e3a5f; }
+
+.status { color: var(--dim); font-size: 12px; }
+.loading .tiles, .loading .chart, .loading .rows, .loading .act { opacity: .45; transition: opacity .2s; }
+
+@media (max-width: 900px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile:nth-child(2) { border-right: 0; }
+  .tile:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .chart { height: 240px; }
+}
+@media (max-width: 480px) {
+  .tile .v { font-size: 24px; }
+  .act li { grid-template-columns: 1fr; gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate" hidden>
+  <form id="signin" autocomplete="off">
+    <h1>Analytics</h1>
+    <input id="token" type="password" placeholder="GoatCounter API token" aria-label="GoatCounter API token" spellcheck="false" required>
+    <button class="btn" type="submit">Continue</button>
+    <p class="err" id="gateErr" role="alert"></p>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
+  <div class="bar">
+    <h1>aryanh.dev <span>analytics</span></h1>
+    <span class="status" id="status"></span>
+    <div class="seg" id="ranges" role="group" aria-label="Time range">
+      <button data-r="24h">24h</button>
+      <button data-r="48h">48h</button>
+      <button data-r="7d">7d</button>
+      <button data-r="30d">30d</button>
+      <button data-r="90d">90d</button>
+    </div>
+    <button class="ghost" id="refresh">Refresh</button>
+    <button class="ghost" id="signout">Sign out</button>
+  </div>
+
+  <section class="card">
+    <div class="tiles">
+      <div class="tile"><div class="k">Visitors</div><div class="v num" id="tVisitors">–</div><div class="sub" id="tVisitorsSub">&nbsp;</div></div>
+      <div class="tile"><div class="k">Clicks</div><div class="v num" id="tClicks">–</div><div class="sub">links, email, resume</div></div>
+      <div class="tile"><div class="k">Bounce rate</div><div class="v num" id="tBounce">–</div><div class="sub">left in under 3s</div></div>
+      <div class="tile"><div class="k">Engaged</div><div class="v num" id="tEngaged">–</div><div class="sub">stayed 8s or longer</div></div>
+    </div>
+    <div class="chart" id="chart"><div class="tip" id="tip" hidden></div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card panel" data-panel="content">
+      <div class="phead">
+        <button class="tab" data-t="pages">Pages</button>
+        <button class="tab" data-t="sections">Sections</button>
+        <button class="tab" data-t="clicks">Clicks</button>
+        <span class="col">Visitors</span>
+      </div>
+      <ul class="rows"></ul>
+    </section>
+    <section class="card panel" data-panel="refs">
+      <div class="phead">
+        <button class="tab" data-t="refs">Referrers</button>
+        <span class="col">Visitors</span>
+      </div>
+      <ul class="rows"></ul>
+      <p class="note day-note"></p>
+    </section>
+  </div>
+
+  <div class="grid3">
+    <section class="card panel" data-panel="geo">
+      <div class="phead">
+        <button class="tab" data-t="countries">Countries</button>
+        <button class="tab" data-t="states">US states</button>
+        <span class="col">Visitors</span>
+      </div>
+      <ul class="rows"></ul>
+      <p class="note day-note"></p>
+    </section>
+    <section class="card panel" data-panel="device">
+      <div class="phead">
+        <button class="tab" data-t="devices">Devices</button>
+        <button class="tab" data-t="browsers">Browsers</button>
+        <span class="col">Visitors</span>
+      </div>
+      <ul class="rows"></ul>
+      <p class="note day-note"></p>
+    </section>
+    <section class="card panel" data-panel="os">
+      <div class="phead">
+        <button class="tab" data-t="systems">Operating systems</button>
+        <span class="col">Visitors</span>
+      </div>
+      <ul class="rows"></ul>
+      <p class="note day-note"></p>
+    </section>
+  </div>
+
+  <section class="card panel" style="margin-top:16px">
+    <div class="phead">
+      <button class="tab" aria-selected="true">Activity</button>
+      <span class="col">By hour</span>
+    </div>
+    <ul class="act" id="activity"></ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  // Private dashboard for aryanh.dev. Reads the GoatCounter API straight from
+  // the browser with a read-only token kept in this browser's localStorage, so
+  // the page itself holds no data and shows nothing without the token.
+  const API = 'https://aryanh.goatcounter.com/api/v0';
+  const KEY = 'gc-dash-token';
+  const RANGES = { '24h': [24, 'hour'], '48h': [48, 'hour'], '7d': [7 * 24, 'day'], '30d': [30 * 24, 'day'], '90d': [90 * 24, 'day'] };
+  const HOUR = 3600e3;
+
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+
+  let token = store.get(KEY);
+  let tz = 'America/Chicago';
+  let range = store.get('gc-dash-range') || '24h';
+  if (!RANGES[range]) range = '24h';
+  let data = null;
+  const tabs = { content: 'pages', geo: 'countries', device: 'devices', refs: 'refs', os: 'systems' };
+
+  // ---- API, spaced to stay under GoatCounter's 4 requests/second. Each call
+  // is two requests (CORS preflight plus the GET), and a rate-limited
+  // preflight surfaces as a network error, so both get retried. ----
+  let last = 0;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function api(path, retry = 3) {
+    const wait = Math.max(0, last + 600 - Date.now());
+    last = Date.now() + wait;
+    if (wait) await sleep(wait);
+    let res;
+    try {
+      res = await fetch(API + path, { headers: { Authorization: 'Bearer ' + token } });
+    } catch (e) {
+      if (!retry) throw new Error('could not reach GoatCounter');
+      await sleep(1500);
+      return api(path, retry - 1);
+    }
+    if (res.status === 429 && retry) {
+      await sleep(1500);
+      return api(path, retry - 1);
+    }
+    if (res.status === 401 || res.status === 403) throw Object.assign(new Error('auth'), { auth: true });
+    if (!res.ok) throw new Error(path + ': HTTP ' + res.status);
+    return res.json();
+  }
+
+  // ---- time zone helpers: GoatCounter buckets by the account's zone ----
+  function offsetMin(t) {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' })
+      .formatToParts(new Date(t)).find((x) => x.type === 'timeZoneName').value;
+    const m = p.match(/GMT([+-])(\d\d):?(\d\d)?/);
+    return m ? (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +(m[3] || 0)) : 0;
+  }
+  function zoned(day, hour) {
+    const [y, mo, d] = day.split('-').map(Number);
+    const guess = Date.UTC(y, mo - 1, d, hour);
+    const t = guess - offsetMin(guess) * 60e3;
+    return guess - offsetMin(t) * 60e3;
+  }
+  const fmt = (o) => new Intl.DateTimeFormat('en-US', Object.assign({ timeZone: tz }, o));
+  const dayKey = (t) => fmt({ year: 'numeric', month: '2-digit', day: '2-digit' }).format(t).replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2');
+  const hourLbl = (t) => fmt({ hour: 'numeric' }).format(t).replace(' ', '').toLowerCase();
+  const dateLbl = (t) => fmt({ month: 'short', day: 'numeric' }).format(t);
+  const weekdayLbl = (t) => fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(t);
+  const floorHour = (t) => Math.floor(t / HOUR) * HOUR;
+
+  // ---- loading ----
+  async function load() {
+    const [hours, unit] = RANGES[range];
+    const now = Date.now();
+    const start = unit === 'hour' ? floorHour(now) - (hours - 1) * HOUR : zoned(dayKey(now - (hours / 24 - 1) * 24 * HOUR), 0);
+    const q = `?start=${new Date(start).toISOString().slice(0, 19)}Z&end=${new Date(now).toISOString().slice(0, 19)}Z`;
+    document.body.classList.add('loading');
+    status('Loading…');
+    try {
+      const total = await api('/stats/total' + q);
+      const hits = await api('/stats/hits' + q + '&limit=100');
+      const lists = { refs: [], countries: [], states: [], devices: [], browsers: [], systems: [] };
+      data = { start, now, unit, total, hits, lists };
+      render();
+      for (const [k, p] of [['refs', 'toprefs'], ['countries', 'locations'], ['devices', 'sizes'], ['systems', 'systems'], ['browsers', 'browsers'], ['states', 'locations/US']]) {
+        lists[k] = (await api(`/stats/${p}${q}&limit=30`)).stats || [];
+        render();
+      }
+      status('Updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(now).toLowerCase());
+    } catch (e) {
+      if (e.auth) return signOut('That token was rejected.');
+      status('Could not load: ' + e.message);
+    } finally {
+      document.body.classList.remove('loading');
+    }
+  }
+  const status = (s) => { $('#status').textContent = s; };
+
+  // ---- shaping ----
+  // Hourly counts in [start, now] keyed by the hour's UTC start time.
+  function hourly(stats) {
+    const out = new Map();
+    for (const s of stats || []) {
+      (s.hourly || []).forEach((c, h) => {
+        if (!c) return;
+        const t = zoned(s.day, h);
+        if (t + HOUR <= data.start || t > data.now) return;
+        out.set(t, (out.get(t) || 0) + c);
+      });
+    }
+    return out;
+  }
+  const sum = (m) => [...m.values()].reduce((a, b) => a + b, 0);
+
+  function series() {
+    const m = hourly(data.total.stats);
+    if (data.unit === 'hour') {
+      const pts = [];
+      for (let t = floorHour(data.start); t <= floorHour(data.now); t += HOUR) pts.push({ t, end: t + HOUR, v: m.get(t) || 0 });
+      return pts;
+    }
+    const byDay = new Map();
+    for (let t = data.start; dayKey(t) <= dayKey(data.now); t += 24 * HOUR) byDay.set(dayKey(t), 0);
+    for (const [t, c] of m) byDay.set(dayKey(t), (byDay.get(dayKey(t)) || 0) + c);
+    return [...byDay].map(([d, v]) => ({ t: zoned(d, 0), end: zoned(d, 0) + 24 * HOUR, v, day: true }));
+  }
+
+  const BUCKETS = ['0-3s', '3-8s', '8-20s', '20-60s', '1-3m', '3m+'];
+  function content() {
+    const pages = [], clicks = [], sections = new Map();
+    let quick = 0, engaged = 0, summaries = 0, events = 0;
+    for (const h of data.hits.hits || []) {
+      const n = sum(hourly(h.stats));
+      if (!n) continue;
+      if (h.event) events += n;
+      if (!h.event) { pages.push({ name: h.path, count: n }); continue; }
+      if (h.path.startsWith('click/')) { clicks.push({ name: h.path.slice(6).replace(/\/$/, ''), count: n }); continue; }
+      const m = h.path.match(/^visit\/([^/]+)\/(.+)$/);
+      if (!m) continue;
+      const [, sec, b] = m;
+      const s = sections.get(sec) || { name: sec, count: 0, buckets: {} };
+      s.count += n;
+      s.buckets[b] = (s.buckets[b] || 0) + n;
+      sections.set(sec, s);
+      summaries += n;
+      if (b === '0-3s') quick += n;
+      if (BUCKETS.indexOf(b) >= 2) engaged += n;
+    }
+    const order = ['top', 'work', 'projects', 'about'];
+    const secs = [...sections.values()].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name)).map((s) => ({
+      name: 'Reached ' + s.name,
+      count: s.count,
+      note: BUCKETS.filter((b) => s.buckets[b]).map((b) => `${s.buckets[b]}× ${b}`).join(', '),
+    }));
+    return { pages, clicks, sections: secs, quick, engaged, summaries, events };
+  }
+
+  // ---- rendering ----
+  function render() {
+    const c = content();
+    const s = series();
+    // Counted from the hourly buckets: the API's own totals cover whole days.
+    $('#tVisitors').textContent = s.reduce((a, d) => a + d.v, 0).toLocaleString();
+    $('#tVisitorsSub').textContent = c.events + ' events';
+    $('#tClicks').textContent = c.clicks.reduce((a, b) => a + b.count, 0);
+    $('#tBounce').textContent = c.summaries ? Math.round((100 * c.quick) / c.summaries) + '%' : '–';
+    $('#tEngaged').textContent = c.summaries ? Math.round((100 * c.engaged) / c.summaries) + '%' : '–';
+    chart(s);
+
+    const L = data.lists;
+    const flag = (id) => (id && id.length === 2 ? String.fromCodePoint(...[...id.toUpperCase()].map((ch) => 0x1f1a5 + ch.charCodeAt(0))) + ' ' : '');
+    const SIZES = { phone: 'Phone', tablet: 'Tablet', desktop: 'Desktop', desktophd: 'Desktop (HD)', unknown: 'Unknown' };
+    const lists = {
+      pages: c.pages,
+      sections: c.sections,
+      clicks: c.clicks,
+      refs: L.refs.map((s) => ({ name: s.name || 'Direct / none', count: s.count })),
+      countries: L.countries.map((s) => ({ name: flag(s.id) + (s.name || 'Unknown'), count: s.count })),
+      states: L.states.map((s) => ({ name: s.name || 'Unknown', count: s.count })),
+      devices: L.devices.map((s) => ({ name: SIZES[s.id] || s.id, count: s.count })),
+      browsers: L.browsers.map((s) => ({ name: s.name || 'Unknown', count: s.count })),
+      systems: L.systems.map((s) => ({ name: s.name || 'Unknown', count: s.count })),
+    };
+    for (const panel of $$('[data-panel]')) {
+      const key = panel.dataset.panel;
+      for (const t of $$('.tab', panel)) t.setAttribute('aria-selected', String(t.dataset.t === tabs[key]));
+      const rows = (lists[tabs[key]] || []).filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+      const max = Math.max(1, ...rows.map((r) => r.count));
+      const ul = $('.rows', panel);
+      ul.innerHTML = '';
+      if (!rows.length) ul.innerHTML = '<li class="empty">Nothing in this range.</li>';
+      for (const r of rows) {
+        const li = document.createElement('li');
+        li.className = 'row';
+        li.innerHTML = '<span class="fill"></span><span class="lbl"></span><span class="cnt num"></span>';
+        $('.fill', li).style.width = (100 * r.count) / max + '%';
+        $('.lbl', li).textContent = r.name;
+        if (r.note) { const s = document.createElement('small'); s.textContent = r.note; $('.lbl', li).append(s); }
+        $('.cnt', li).textContent = r.count;
+        li.title = r.name + (r.note ? ' · ' + r.note : '');
+        ul.append(li);
+      }
+    }
+    const partial = data.unit === 'hour';
+    for (const n of $$('.day-note')) n.textContent = partial ? 'GoatCounter breaks these down by whole day, so they can include visits from earlier in the day.' : '';
+    activity();
+  }
+
+  function activity() {
+    const perHour = new Map();
+    const add = (t, item) => { if (!perHour.has(t)) perHour.set(t, []); perHour.get(t).push(item); };
+    for (const h of data.hits.hits || []) {
+      for (const [t, n] of hourly(h.stats)) {
+        if (!h.event) add(t, { cls: 'pv', text: `${n} visit${n > 1 ? 's' : ''} · ${h.path}`, rank: 0 });
+        else if (h.path.startsWith('click/')) add(t, { cls: 'click', text: `clicked ${h.path.slice(6).replace(/\/$/, '')}${n > 1 ? ' ×' + n : ''}`, rank: 2 });
+        else {
+          const m = h.path.match(/^visit\/([^/]+)\/(.+)$/);
+          if (m) add(t, { cls: '', text: `${m[1]} · ${m[2]}${n > 1 ? ' ×' + n : ''}`, rank: 1 });
+        }
+      }
+    }
+    const ul = $('#activity');
+    ul.innerHTML = '';
+    const hours = [...perHour.keys()].sort((a, b) => b - a);
+    if (!hours.length) ul.innerHTML = '<li class="empty" style="display:block">No visits in this range.</li>';
+    for (const t of hours) {
+      const li = document.createElement('li');
+      li.innerHTML = '<div class="t"></div><div class="chips"></div>';
+      $('.t', li).innerHTML = `${hourLbl(t)} – ${hourLbl(t + HOUR)}<small>${weekdayLbl(t)}</small>`;
+      for (const it of perHour.get(t).sort((a, b) => a.rank - b.rank)) {
+        const s = document.createElement('span');
+        s.className = 'chip ' + it.cls;
+        s.textContent = it.text;
+        $('.chips', li).append(s);
+      }
+      ul.append(li);
+    }
+  }
+
+  // ---- chart ----
+  let pts = [];
+  function chart(p) {
+    pts = p;
+    const box = $('#chart');
+    $$('svg', box).forEach((s) => s.remove());
+    const W = box.clientWidth - 16, H = box.clientHeight - 24;
+    const L = 28, R = 8, T = 8, B = 24;
+    const max = Math.max(1, ...p.map((d) => d.v));
+    const top = max <= 4 ? max : Math.ceil(max / 4) * 4;
+    const x = (i) => L + (p.length < 2 ? 0 : (i * (W - L - R)) / (p.length - 1));
+    const y = (v) => T + (1 - v / top) * (H - T - B);
+    const ns = 'http://www.w3.org/2000/svg';
+    const el = (tag, attrs) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Visitors over time' });
+
+    const ticks = top <= 4 ? [...Array(top + 1).keys()] : [0, top / 4, top / 2, (3 * top) / 4, top];
+    for (const v of ticks) {
+      svg.append(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: '#1f1f1f' }));
+      const t = el('text', { x: L - 8, y: y(v) + 4, 'text-anchor': 'end' });
+      t.textContent = v;
+      svg.append(t);
+    }
+    const every = Math.max(1, Math.ceil(p.length / Math.max(2, Math.floor((W - L) / 90))));
+    p.forEach((d, i) => {
+      if (i % every) return;
+      const t = el('text', { x: x(i), y: H - 4, 'text-anchor': 'middle' });
+      const midnight = !d.day && hourLbl(d.t) === '12am';
+      t.textContent = d.day || midnight ? dateLbl(d.t) : hourLbl(d.t);
+      svg.append(t);
+    });
+
+    const grad = el('linearGradient', { id: 'g', x1: 0, x2: 0, y1: 0, y2: 1 });
+    grad.append(el('stop', { offset: '0', 'stop-color': '#3b82f6', 'stop-opacity': '.28' }), el('stop', { offset: '1', 'stop-color': '#3b82f6', 'stop-opacity': '0' }));
+    const defs = el('defs', {});
+    defs.append(grad);
+    svg.append(defs);
+    const line = p.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d.v).toFixed(1)}`).join('');
+    svg.append(el('path', { d: `${line}L${x(p.length - 1)},${y(0)}L${x(0)},${y(0)}Z`, fill: 'url(#g)' }));
+    svg.append(el('path', { d: line, fill: 'none', stroke: '#3b82f6', 'stroke-width': 1.75, 'stroke-linejoin': 'round' }));
+
+    const cross = el('line', { y1: T, y2: y(0), stroke: '#ededed', 'stroke-width': 1, visibility: 'hidden' });
+    const dot = el('circle', { r: 4, fill: '#3b82f6', stroke: '#000', 'stroke-width': 2, visibility: 'hidden' });
+    svg.append(cross, dot);
+    const hit = el('rect', { x: L, y: 0, width: W - L - R, height: H, fill: 'transparent' });
+    svg.append(hit);
+    box.prepend(svg);
+
+    const tip = $('#tip');
+    const move = (ev) => {
+      const r = svg.getBoundingClientRect();
+      const cx = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * (W / r.width);
+      const i = Math.max(0, Math.min(p.length - 1, Math.round(((cx - L) / (W - L - R)) * (p.length - 1))));
+      const d = p[i];
+      for (const a of [cross]) { a.setAttribute('x1', x(i)); a.setAttribute('x2', x(i)); a.setAttribute('visibility', 'visible'); }
+      dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(d.v)); dot.setAttribute('visibility', 'visible');
+      tip.innerHTML = `<div><span class="dot"></span>Visitors <b class="num">${d.v}</b></div><div class="when">${d.day ? weekdayLbl(d.t) : `${weekdayLbl(d.t)}, ${hourLbl(d.t)} – ${hourLbl(d.end)}`}</div>`;
+      tip.hidden = false;
+      const px = (x(i) / W) * r.width + 4;
+      const left = px + 14 + tip.offsetWidth > box.clientWidth ? px - tip.offsetWidth - 14 : px + 14;
+      tip.style.left = left + 'px';
+      tip.style.top = Math.max(8, (y(d.v) / H) * r.height - 10) + 'px';
+    };
+    const leave = () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); };
+    hit.addEventListener('mousemove', move);
+    hit.addEventListener('touchmove', move, { passive: true });
+    hit.addEventListener('mouseleave', leave);
+    hit.addEventListener('touchend', leave);
+  }
+
+  // ---- wiring ----
+  function show(app) {
+    $('#gate').hidden = app;
+    $('#app').hidden = !app;
+  }
+  function signOut(msg) {
+    store.del(KEY);
+    token = null;
+    data = null;
+    show(false);
+    $('#gateErr').textContent = msg || '';
+    $('#token').value = '';
+    $('#token').focus();
+  }
+  async function start() {
+    show(true);
+    // Keep the owner's own visits to aryanh.dev out of GoatCounter.
+    store.set('skipgc', 't');
+    try {
+      const me = await api('/me');
+      const z = me.user && me.user.settings && me.user.settings.timezone;
+      if (z) tz = z.replace(/^[A-Z]{2}\./, '');
+      try { fmt({}).format(0); } catch (e) { tz = 'America/Chicago'; }
+    } catch (e) {
+      if (e.auth) return signOut('That token was rejected.');
+    }
+    load();
+  }
+
+  $('#signin').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const btn = $('button', ev.target);
+    btn.disabled = true;
+    $('#gateErr').textContent = '';
+    token = $('#token').value.trim();
+    try {
+      await api('/me');
+      store.set(KEY, token);
+      start();
+    } catch (e) {
+      token = null;
+      $('#gateErr').textContent = e.auth ? 'That token was rejected.' : 'Could not reach GoatCounter.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $('#signout').addEventListener('click', () => signOut());
+  $('#refresh').addEventListener('click', load);
+  for (const b of $$('#ranges button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.r === range));
+    b.addEventListener('click', () => {
+      range = b.dataset.r;
+      store.set('gc-dash-range', range);
+      $$('#ranges button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      load();
+    });
+  }
+  for (const panel of $$('[data-panel]')) {
+    panel.addEventListener('click', (ev) => {
+      const t = ev.target.closest('.tab');
+      if (!t || !data) return;
+      tabs[panel.dataset.panel] = t.dataset.t;
+      render();
+    });
+  }
+  let rz;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => data && chart(pts), 150); });
+
+  if (token) start();
+  else show(false);
+})();
+</script>
+</body>
+</html>
