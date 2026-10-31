@@ -41,6 +41,66 @@
     if (!saved) switchTo(e.matches ? 'dark' : 'light');
   });
 
+  // Scroll motion: reveals, drawn section rules, hero parallax, progress bar.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('loaded')));
+
+  const revealables = [...document.querySelectorAll('[data-rv]')];
+  const rules = [...document.querySelectorAll('.hero, .row')];
+  if (still || !('IntersectionObserver' in window)) {
+    revealables.forEach((el) => el.classList.add('in'));
+    rules.forEach((el) => el.classList.add('drawn'));
+  } else {
+    // Items that enter together are staggered so a section cascades in.
+    let batch = 0, batchTimer = null;
+    const rio = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        rio.unobserve(e.target);
+        const inHero = e.target.closest('.hero');
+        e.target.style.transitionDelay = (inHero ? 0.35 : 0) + Math.min(batch, 6) * 0.09 + 's';
+        e.target.classList.add('in');
+        batch++;
+      }
+      clearTimeout(batchTimer);
+      batchTimer = setTimeout(() => { batch = 0; }, 120);
+    }, { rootMargin: '0px 0px -8% 0px' });
+    revealables.forEach((el) => rio.observe(el));
+
+    // A rule sits at the bottom of its section, so a 1px marker there
+    // decides when it draws.
+    const lio = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        lio.unobserve(e.target);
+        e.target.parentElement.classList.add('drawn');
+      }
+    }, { rootMargin: '0px 0px -10% 0px' });
+    rules.forEach((el) => {
+      const mark = document.createElement('span');
+      mark.setAttribute('aria-hidden', 'true');
+      mark.style.cssText = 'position:absolute;bottom:0;left:0;width:1px;height:1px;pointer-events:none';
+      el.appendChild(mark);
+      lio.observe(mark);
+    });
+  }
+
+  const bar = document.querySelector('.progress');
+  const heroName = document.querySelector('.hero h1');
+  let ticking = false;
+  function onScroll() {
+    ticking = false;
+    const y = window.scrollY;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (bar) bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, y / max) : 0) + ')';
+    if (heroName && !still && y < innerHeight * 1.2) {
+      heroName.style.transform = 'translate3d(0,' + (y * 0.22).toFixed(1) + 'px,0)';
+      heroName.style.opacity = Math.max(0, 1 - y / 650).toFixed(3);
+    }
+  }
+  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+
   // GoatCounter custom events. No-ops when the counter is blocked.
   function track(path) {
     if (!window.goatcounter || !window.goatcounter.count) return;
