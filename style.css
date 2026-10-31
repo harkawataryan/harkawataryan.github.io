@@ -250,8 +250,10 @@ h1 .line > span { display: inline-block; }
 /* Live clouds on the renderer card. The card spans the row, the canvas sits
    over the screenshot and fades in once it has drawn, and unlike the other
    cards it stays in color, because the point is that it's running. */
-.project.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: end; margin-top: 8px; }
+.project.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: end; padding-top: 28px; border-top: 1px solid var(--line); }
+.project.wide:first-child { padding-top: 0; border-top: 0; }
 .project.wide .shot img { aspect-ratio: 16 / 10; }
+.projects { gap: 36px; }
 .project.wide .info h3 { margin-top: 0; font-size: 24px; }
 .project.wide .info p { font-size: 15px; }
 .project .shot { position: relative; }
@@ -279,4 +281,37 @@ h1 .line > span { display: inline-block; }
 @media (max-width: 900px) {
   .project.wide { grid-template-columns: 1fr; gap: 14px; }
   .project.wide .info h3 { font-size: 20px; }
+}
+
+/* Live Herd simulation: requests stream into eight servers while the visitor
+   switches the routing policy. The canvas and controls replace the screenshot
+   once the script has drawn. */
+.project .shot.has-sim { cursor: default; }
+.project .shot .sim { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; opacity: 0; transition: opacity 0.8s ease; background: var(--bg); }
+.project .shot .sim.on { opacity: 1; }
+.project .shot .sim canvas { width: 100%; height: 100%; display: block; }
+.sim .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.sim .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.sim .seg button { background: none; border: 0; padding: 5px 10px; font: 500 12px Inter, sans-serif; color: var(--muted); cursor: pointer; }
+.sim .seg button + button { border-left: 1px solid var(--line); }
+.sim .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.sim label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; user-select: none; }
+.sim label input { accent-color: var(--acc); margin: 0; }
+.sim .stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+.sim .stat { padding: 8px 12px; border-right: 1px solid var(--line); }
+.sim .stat:last-child { border-right: 0; }
+.sim .stat .k { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.sim .stat .v { font: 600 18px/1.2 "Inter Tight", Inter, sans-serif; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.sim .stat .v small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.sim .stat .v.hot { color: var(--acc); }
+.project .shot.has-sim img { filter: none; }
+.sim .bar .hint { position: static; margin-left: auto; opacity: 1; }
+@media (max-width: 480px) {
+  .sim .seg button { padding: 5px 7px; font-size: 11px; }
+  .sim .stat .v { font-size: 15px; }
+}
+@media (max-width: 680px) {
+  .project .shot.has-sim { min-height: 460px; }
+  .project .shot.has-sim img { height: 100%; aspect-ratio: auto; }
+  .sim .bar .hint { margin-left: 0; }
 }

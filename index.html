@@ -22,7 +22,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <div class="progress" aria-hidden="true"></div>
@@ -104,22 +104,28 @@
   <h2 data-rv><i>02</i>Projects</h2>
   <div class="col projects">
 
-  <article class="project" data-rv>
-    <a class="shot" href="https://github.com/harkawataryan/herd"><img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675"></a>
+  <article class="project wide" data-rv>
+    <div class="shot" data-live-herd>
+      <img src="assets/herd.jpg" alt="Herd routing dashboard" loading="lazy" width="1200" height="675">
+    </div>
+    <div class="info">
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
 
     <p>A load balancer for LLMs running across several GPU servers. It sits in front of them and picks which server answers each request. It prefers a server that already has the prompt cached, so it can skip redoing that work, then the one with the most free memory, and drops low-priority requests when every server is full. On an 8-server benchmark it cut p99 time to first token 55% compared to round-robin. With two slow servers it held at 13.5s while round-robin hit 292s.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
+    </div>
   </article>
 
-  <article class="project" data-rv>
+  <article class="project wide" data-rv>
     <a class="shot" href="https://concertify-cm6k.onrender.com"><img src="assets/concertify.jpg" alt="Concertify recommendations page" loading="lazy" width="1200" height="675"></a>
+    <div class="info">
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
 
     <p>Ranks upcoming concerts by how much you listen to each artist on Spotify, with thumbs up and down tuning the weights per user. 500+ users. Ticketmaster allows 5 requests a second, so a Redis cache that collapses duplicate requests and a priority limiter that fetches on-screen results first brought the first load from 9s to 2.5s.</p>
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
+    </div>
   </article>
 
   <article class="project wide" data-rv>
@@ -156,6 +162,7 @@
 
 <script src="site.js?v=22" defer></script>
 <script src="clouds.js?v=2" defer></script>
+<script src="herd.js?v=1" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
