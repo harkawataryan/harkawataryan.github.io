@@ -127,7 +127,7 @@
     if (!href || href.startsWith('#')) return;
     let label;
     if (href.startsWith('mailto:')) label = 'email';
-    else if (href.endsWith('.pdf')) label = 'resume';
+    else if (/\.pdf(\?|$)/.test(href)) label = 'resume';
     else {
       const card = a.closest('.project');
       const name = card ? card.querySelector('h3').textContent.trim().toLowerCase().replace(/\s+/g, '-') : null;
