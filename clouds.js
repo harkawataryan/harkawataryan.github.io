@@ -21,10 +21,13 @@ varying vec2 v;
 uniform vec2 uRes;
 uniform float uTime;
 uniform vec3 uSun;
+uniform float uFrame;
+uniform float uBlend;
+uniform sampler2D uHist;
 
 const float BASE = 700.0, THICK = 2200.0;
 const float SIGMA = 0.011;          // extinction per metre at density 1
-const int STEPS = 30;
+const int STEPS = 34;
 const vec3 AMBIENT_TOP = vec3(0.62, 0.74, 0.95);
 const vec3 AMBIENT_BOTTOM = vec3(0.36, 0.42, 0.52);
 const float PI = 3.14159265;
@@ -42,7 +45,7 @@ float shape(vec3 p) {
   for (int i = 0; i < 3; i++) { n += a * (1.0 - abs(noise(p) * 2.0 - 1.0)); p = p * 2.1 + 31.0; a *= 0.5; }
   return n;
 }
-float detail(vec3 p) { return 0.65 * noise(p) + 0.35 * noise(p * 2.3 + 7.0); }
+float detail(vec3 p) { return 0.55 * noise(p) + 0.3 * noise(p * 2.3 + 7.0) + 0.15 * noise(p * 5.1 + 19.0); }
 float heightFrac(vec3 p) { return clamp((p.y - BASE) / THICK, 0.0, 1.0); }
 float heightGradient(float h) { return remap(h, 0.0, 0.12, 0.0, 1.0) * remap(h, 0.55, 0.95, 1.0, 0.0); }
 
@@ -110,10 +113,11 @@ void main() {
   if (rd.y > 0.02) {
     float t0 = (BASE - ro.y) / rd.y, t1 = (BASE + THICK - ro.y) / rd.y;
     t1 = min(t1, t0 + 16000.0);
-    float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    // Interleaved gradient noise, shifted each frame, so accumulated frames converge.
+    float jitter = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y + 0.0113 * uFrame));
     float stepSize = (t1 - t0) / float(STEPS);
     float cosT = dot(rd, uSun);
-    float t = t0 + jitter * stepSize * 0.5, trans = 1.0, depthAcc = 0.0, depthW = 0.0;
+    float t = t0 + jitter * stepSize, trans = 1.0, depthAcc = 0.0, depthW = 0.0;
     vec3 radiance = vec3(0.0);
     for (int i = 0; i < STEPS; i++) {
       vec3 p = ro + rd * t;
@@ -137,7 +141,9 @@ void main() {
     trans = mix(1.0, trans, fade);
     col = radiance + bg * trans;
   }
-  gl_FragColor = vec4(pow(tonemap(col), vec3(1.0 / 2.2)), 1.0);
+  vec3 fresh = pow(tonemap(col), vec3(1.0 / 2.2));
+  vec3 hist = texture2D(uHist, v).rgb;
+  gl_FragColor = vec4(mix(hist, fresh, uBlend), 1.0);
 }`;
 
   function compile(type, src) {
@@ -157,26 +163,58 @@ void main() {
   } catch (e) {
     return; // driver can't run it; the screenshot stays
   }
-  gl.useProgram(prog);
+  // A second tiny program copies the accumulated frame to the screen.
+  const COPY = 'precision mediump float;varying vec2 v;uniform sampler2D uTex;void main(){gl_FragColor=texture2D(uTex,v);}';
+  const copy = gl.createProgram();
+  gl.attachShader(copy, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(copy, compile(gl.FRAGMENT_SHADER, COPY));
+  gl.linkProgram(copy);
+
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const loc = gl.getAttribLocation(prog, 'p');
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const uRes = gl.getUniformLocation(prog, 'uRes'), uTime = gl.getUniformLocation(prog, 'uTime'), uSun = gl.getUniformLocation(prog, 'uSun');
+  for (const pr of [prog, copy]) {
+    gl.useProgram(pr);
+    const loc = gl.getAttribLocation(pr, 'p');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  }
+  gl.useProgram(prog);
+  const U = (n) => gl.getUniformLocation(prog, n);
+  const uRes = U('uRes'), uTime = U('uTime'), uSun = U('uSun'), uFrame = U('uFrame'), uBlend = U('uBlend'), uHist = U('uHist');
+  const uTex = gl.getUniformLocation(copy, 'uTex');
+
+  // Two textures ping-pong: each frame blends the new render into the last
+  // one, so the per-pixel jitter averages out into a smooth image.
+  const pair = [0, 1].map(() => {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    return { tex, fbo };
+  });
+  let cur = 0, frames = 0;
+  function allocate(w, h) {
+    for (const p of pair) { gl.bindTexture(gl.TEXTURE_2D, p.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
+    frames = 0;
+  }
 
   // Sun direction from azimuth/elevation; dragging changes both.
   let az = 0.45, el = 0.6;
   const sunDir = () => [Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)];
 
-  const SCALE = 0.7;
+  const SCALE = 0.75;
   function size() {
     const r = shot.getBoundingClientRect();
     const w = Math.max(2, Math.round(r.width * SCALE)), h = Math.max(2, Math.round(r.height * SCALE));
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; allocate(w, h); }
   }
 
-  let visible = false, raf = 0, last = 0, t0 = performance.now();
+  let visible = false, raf = 0, last = 0, t0 = performance.now(), sunMoved = true;
   const FRAME = 1000 / 30;
   function frame(now) {
     raf = 0;
@@ -184,11 +222,31 @@ void main() {
     if (now - last >= FRAME) {
       last = now;
       size();
+      const prev = pair[cur], next = pair[cur ^ 1];
+      cur ^= 1;
+      // First frames and sun moves blend fast so the picture responds; then
+      // settle into a slow blend that smooths the jitter away.
+      const blend = frames < 2 ? 1 : sunMoved ? 0.45 : 0.14;
+      sunMoved = false;
+      gl.useProgram(prog);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, prev.tex);
+      gl.uniform1i(uHist, 0);
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uTime, (now - t0) / 1000);
+      gl.uniform1f(uFrame, frames % 64);
+      gl.uniform1f(uBlend, blend);
       gl.uniform3fv(uSun, sunDir());
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      if (!canvas.classList.contains('on')) canvas.classList.add('on');
+      gl.useProgram(copy);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, next.tex);
+      gl.uniform1i(uTex, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      frames++;
+      if (frames === 3) canvas.classList.add('on');
     }
     raf = requestAnimationFrame(frame);
   }
@@ -206,6 +264,7 @@ void main() {
     if (!dragged && Math.hypot(dx, dy) < 5) return;
     if (!dragged) { dragged = true; shot.setPointerCapture(e.pointerId); shot.classList.add('dragging'); }
     const r = shot.getBoundingClientRect();
+    sunMoved = true;
     az = down.az + (dx / r.width) * Math.PI * 1.2;
     el = Math.max(0.03, Math.min(1.35, down.el - (dy / r.height) * 1.6));
     e.preventDefault();
@@ -219,7 +278,7 @@ void main() {
   shot.appendChild(canvas);
   const hint = document.createElement('span');
   hint.className = 'hint';
-  hint.textContent = 'Live · drag to move the sun';
+  hint.innerHTML = '<i></i>Live · drag to move the sun';
   shot.appendChild(hint);
   shot.classList.add('has-live');
 })();

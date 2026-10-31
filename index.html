@@ -22,7 +22,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 <div class="progress" aria-hidden="true"></div>
@@ -122,13 +122,15 @@
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
   </article>
 
-  <article class="project" data-rv>
+  <article class="project wide" data-rv>
     <a class="shot" data-live-clouds href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer"><img src="assets/clouds.jpg?v=2" alt="Rendered cumulus clouds seen from the ground" loading="lazy" width="1200" height="675"></a>
+    <div class="info">
     <h3>Volumetric Cloud Renderer</h3>
     <p class="stack">C++ · OpenGL · GLSL</p>
 
     <p>Real-time volumetric clouds in C++ and OpenGL. Ray-marches through Perlin-Worley noise generated in compute shaders and lights it with a multiple-scattering approximation, which gives the soft, bright edges. Rendering at half resolution with temporal reprojection from the previous frame makes it about 3.5× cheaper with no visible difference.</p>
     <p class="links"><a href="https://github.com/harkawataryan/Volumetric-Cloud-Renderer">Source</a></p>
+    </div>
   </article>
 
   </div>
@@ -153,7 +155,7 @@
 </div>
 
 <script src="site.js?v=22" defer></script>
-<script src="clouds.js?v=1" defer></script>
+<script src="clouds.js?v=2" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

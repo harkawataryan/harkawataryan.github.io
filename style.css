@@ -247,18 +247,24 @@ h1 .line > span { display: inline-block; }
 /* Project images unmask upward and settle from a slight zoom. */
 .project .shot { overflow: hidden; }
 
-/* Live clouds on the renderer card: the canvas sits over the screenshot and
-   fades in once it has drawn a frame. It takes the same grayscale-until-hover
-   treatment as the other cards. */
+/* Live clouds on the renderer card. The card spans the row, the canvas sits
+   over the screenshot and fades in once it has drawn, and unlike the other
+   cards it stays in color, because the point is that it's running. */
+.project.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: end; margin-top: 8px; }
+.project.wide .shot img { aspect-ratio: 16 / 10; }
+.project.wide .info h3 { margin-top: 0; font-size: 24px; }
+.project.wide .info p { font-size: 15px; }
 .project .shot { position: relative; }
-.project .shot canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.6s ease, filter 0.3s; filter: grayscale(1) contrast(1.05); image-rendering: auto; touch-action: pan-y; }
+.project .shot canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; touch-action: pan-y; }
 .project .shot canvas.live.on { opacity: 1; }
-.project:hover .shot canvas.live, .project .shot.dragging canvas.live { filter: none; }
+.project .shot.has-live img, .project:hover .shot.has-live img { filter: none; }
 .project .shot.has-live { cursor: grab; }
 .project .shot.dragging { cursor: grabbing; }
-.project .shot .hint { position: absolute; left: 10px; bottom: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); padding: 3px 9px; border-radius: 999px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-.project:hover .shot.has-live .hint { opacity: 1; }
-@media (hover: none) { .project .shot.has-live .hint { opacity: 1; } .project .shot.has-live canvas.live { filter: none; } }
+.project .shot .hint { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 7px; font: 500 12px Inter, sans-serif; letter-spacing: .01em; color: #fff; background: rgba(0,0,0,.5); backdrop-filter: blur(6px); padding: 5px 11px 5px 9px; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
+.project .shot.has-live .hint { opacity: 1; }
+.project .shot .hint i { width: 7px; height: 7px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 0 0 rgba(255,59,48,.7); animation: live-pulse 1.6s ease-out infinite; }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,48,.7); } 70% { box-shadow: 0 0 0 7px rgba(255,59,48,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0); } }
+
 .js .project .shot { clip-path: inset(100% 0 0 0); transition: clip-path 1s cubic-bezier(.65,0,.25,1); }
 .js .project .shot img { transform: scale(1.12); transition: filter 0.3s, transform 1.4s cubic-bezier(.2,.75,.2,1); }
 .js .project.in .shot { clip-path: inset(0 0 0 0); }
@@ -268,4 +274,9 @@ h1 .line > span { display: inline-block; }
   .progress { display: none; }
   .js h1 .line > span, .js [data-rv], .js .project .shot, .js .project .shot img { transform: none !important; opacity: 1 !important; clip-path: none !important; transition: none !important; }
   .js .hero::after, .js .row::after { transform: none; transition: none; }
+}
+
+@media (max-width: 900px) {
+  .project.wide { grid-template-columns: 1fr; gap: 14px; }
+  .project.wide .info h3 { font-size: 20px; }
 }
