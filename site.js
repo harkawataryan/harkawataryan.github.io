@@ -1,4 +1,46 @@
 (function () {
+  // Light/dark switch. The initial theme is set by the inline script in
+  // <head>; this handles clicks, remembers the choice, and follows the
+  // system setting until someone picks one.
+  const root = document.documentElement;
+  const btn = document.querySelector('.theme');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  function apply(theme) {
+    root.dataset.theme = theme;
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0e0e0e' : '#ffffff');
+    if (btn) btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+  function switchTo(theme) {
+    // Browsers with view transitions cross-fade the whole page in one pass.
+    // Others fade each element's colors, which is close enough.
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(() => apply(theme));
+      return;
+    }
+    root.classList.add('theme-switching');
+    apply(theme);
+    clearTimeout(switchTo.t);
+    switchTo.t = setTimeout(() => root.classList.remove('theme-switching'), 450);
+  }
+  apply(root.dataset.theme || 'light');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme', next); } catch (e) {}
+      btn.classList.remove('spin');
+      void btn.offsetWidth; // restart the animation on quick repeat clicks
+      btn.classList.add('spin');
+      switchTo(next);
+    });
+    btn.addEventListener('animationend', () => btn.classList.remove('spin'));
+  }
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  mq.addEventListener('change', (e) => {
+    let saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (err) {}
+    if (!saved) switchTo(e.matches ? 'dark' : 'light');
+  });
+
   // GoatCounter custom events. No-ops when the counter is blocked.
   function track(path) {
     if (!window.goatcounter || !window.goatcounter.count) return;

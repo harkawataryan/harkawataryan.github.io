@@ -8,6 +8,64 @@
   --max: 1100px;
   color-scheme: light;
 }
+:root[data-theme="dark"] {
+  --bg: #0e0e0e;
+  --fg: #ececec;
+  --muted: #9b9b9b;
+  --line: #2a2a2a;
+  --rule: #ececec;
+  --acc: #ff6a2b;
+  color-scheme: dark;
+}
+
+/* Colors cross-fade only while the theme is switching, so ordinary hovers
+   keep their own timing. */
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, fill 0.4s ease, stroke 0.4s ease !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.4s; animation-timing-function: ease; }
+
+/* ---- theme switch ---- */
+.theme {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  margin: -6px -6px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.15s;
+}
+.theme:hover { transform: scale(1.15); color: var(--acc); }
+.theme:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.theme.spin { animation: theme-spin 0.45s cubic-bezier(.3,.7,.3,1); }
+@keyframes theme-spin {
+  0% { transform: scale(1) rotate(0); }
+  35% { transform: scale(0.7) rotate(160deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+.theme svg {
+  position: absolute;
+  inset: 6px;
+  width: 18px;
+  height: 18px;
+  transition: opacity 0.3s ease, transform 0.45s cubic-bezier(.3,.7,.3,1);
+}
+.theme .sun { fill: currentColor; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.theme .moon { fill: currentColor; inset: 7px; width: 16px; height: 16px; }
+/* Show the moon in light mode (click for dark) and the sun in dark mode. */
+:root[data-theme="light"] .theme .sun,
+:root:not([data-theme]) .theme .sun { opacity: 0; transform: rotate(-90deg) scale(0.4); }
+:root[data-theme="dark"] .theme .moon { opacity: 0; transform: rotate(90deg) scale(0.4); }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme, .theme svg, .theme-switching, .theme-switching * { transition: none !important; animation: none !important; }
+}
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
@@ -41,7 +99,7 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .top a { border: 0; }
 .top .name { white-space: nowrap; }
-.top nav { display: flex; gap: 28px; }
+.top nav { display: flex; align-items: center; gap: 28px; }
 .top nav a { font-weight: 500; }
 
 /* ---- hero ---- */
@@ -136,4 +194,6 @@ footer a { border: 0; }
 }
 @media (max-width: 360px) {
   .top { font-size: 12px; letter-spacing: 0.02em; }
+  .top nav { gap: 6px; }
+  .theme { margin-right: -8px; }
 }

@@ -9,10 +9,19 @@
 <meta property="og:description" content="Aryan Harkawat, CS at UT Austin. I work on backend infrastructure, distributed systems and AI/ML. Previously at Stripe, Trend Micro and Mercor.">
 <meta property="og:image" content="https://aryanh.dev/assets/clouds.jpg">
 <meta name="theme-color" content="#ffffff">
+<script>
+  // Applied before the stylesheet so the page never flashes the wrong theme.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 
@@ -26,6 +35,10 @@
     <a href="#about">About</a>
     <a href="https://github.com/harkawataryan">GitHub</a>
     <a href="assets/Aryan_Harkawat_Resume.pdf">Resume</a>
+    <button class="theme" type="button" aria-label="Switch to dark mode">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><g><line x1="12" y1="1.8" x2="12" y2="4.2"/><line x1="12" y1="19.8" x2="12" y2="22.2"/><line x1="1.8" y1="12" x2="4.2" y2="12"/><line x1="19.8" y1="12" x2="22.2" y2="12"/><line x1="4.8" y1="4.8" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.2" y2="19.2"/><line x1="4.8" y1="19.2" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.2" y2="4.8"/></g></svg>
+      <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/></svg>
+    </button>
   </nav>
 </header>
 
@@ -137,7 +150,7 @@
 
 </div>
 
-<script src="site.js?v=18" defer></script>
+<script src="site.js?v=19" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
