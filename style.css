@@ -246,6 +246,19 @@ h1 .line > span { display: inline-block; }
 
 /* Project images unmask upward and settle from a slight zoom. */
 .project .shot { overflow: hidden; }
+
+/* Live clouds on the renderer card: the canvas sits over the screenshot and
+   fades in once it has drawn a frame. It takes the same grayscale-until-hover
+   treatment as the other cards. */
+.project .shot { position: relative; }
+.project .shot canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.6s ease, filter 0.3s; filter: grayscale(1) contrast(1.05); image-rendering: auto; touch-action: pan-y; }
+.project .shot canvas.live.on { opacity: 1; }
+.project:hover .shot canvas.live, .project .shot.dragging canvas.live { filter: none; }
+.project .shot.has-live { cursor: grab; }
+.project .shot.dragging { cursor: grabbing; }
+.project .shot .hint { position: absolute; left: 10px; bottom: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); padding: 3px 9px; border-radius: 999px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.project:hover .shot.has-live .hint { opacity: 1; }
+@media (hover: none) { .project .shot.has-live .hint { opacity: 1; } .project .shot.has-live canvas.live { filter: none; } }
 .js .project .shot { clip-path: inset(100% 0 0 0); transition: clip-path 1s cubic-bezier(.65,0,.25,1); }
 .js .project .shot img { transform: scale(1.12); transition: filter 0.3s, transform 1.4s cubic-bezier(.2,.75,.2,1); }
 .js .project.in .shot { clip-path: inset(0 0 0 0); }
