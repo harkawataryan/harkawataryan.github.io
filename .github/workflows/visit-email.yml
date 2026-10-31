@@ -6,6 +6,9 @@ name: Email visit summaries
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write # publishes the encrypted visit log to the visit-data branch
+
 concurrency:
   group: visit-email
   cancel-in-progress: false
@@ -27,13 +30,36 @@ jobs:
           key: visit-state-${{ github.run_id }}
           restore-keys: visit-state-
 
+      # The encrypted visit log for /stats/ lives alone on the visit-data
+      # branch. It isn't the default branch, so it never rebuilds the site.
+      - name: Fetch visit log
+        run: git fetch --depth=1 origin visit-data && git show FETCH_HEAD:visits.enc > visits.enc || true
+
+      - run: pip install --quiet cryptography
+
       - run: python3 .github/scripts/visit_email.py
         env:
           GOATCOUNTER_TOKEN: ${{ secrets.GOATCOUNTER_TOKEN }}
+          VISITS_FILE: visits.enc
           NOTIFY_TO: harkawat.aryan@gmail.com
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+      # Replaces the branch with a single commit each time so it never grows.
+      - name: Publish visit log
+        if: success()
+        run: |
+          [ -s visits.enc ] || exit 0
+          dir=$(mktemp -d)
+          cp visits.enc "$dir/"
+          cd "$dir"
+          git init -q -b visit-data
+          git add visits.enc
+          git -c user.name="github-actions[bot]" -c user.email="41898283+github-actions[bot]@users.noreply.github.com" commit -q -m "Visit log"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" visit-data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - uses: actions/cache/save@v4
         if: always()

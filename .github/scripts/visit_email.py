@@ -9,11 +9,18 @@ export doesn't arrive as two emails.
 State (last exported hit id and held rows) lives in state.json, carried
 between runs by the Actions cache.
 
+Every finished visit is also kept in a visit log for the /stats/ dashboard.
+The log is encrypted with a key derived from GOATCOUNTER_TOKEN (PBKDF2 +
+AES-GCM) and published by the workflow to the visit-data branch, where the
+dashboard fetches it and decrypts it in the browser with the same token. The
+first run without a log exports the full history once to backfill it.
+
 Env: GOATCOUNTER_TOKEN, NOTIFY_TO (where emails go), and either
 RESEND_API_KEY (sends through resend.com) or GMAIL_ADDRESS plus
 GMAIL_APP_PASSWORD. DRY_RUN=1 prints instead of sending.
 """
 
+import base64
 import csv
 import gzip
 import io
@@ -30,6 +37,9 @@ from zoneinfo import ZoneInfo
 
 SITE = "https://aryanh.goatcounter.com"
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
+VISITS_FILE = os.environ.get("VISITS_FILE", "")
+KDF_ITERATIONS = 200_000
+MAX_VISITS = 5000
 SETTLE = timedelta(minutes=10)
 LOCAL_TZ = ZoneInfo("America/Chicago")
 
@@ -182,41 +192,123 @@ def send(subject, body):
         s.send_message(msg)
 
 
+def visit_record(rows):
+    """One visit as the dashboard reads it: who, from where, and every hit."""
+    first = rows[0]
+    try:
+        width = int((first["Screen size"] or "0").split(",")[0])
+    except ValueError:
+        width = 0
+    return {
+        "id": first["Session"] or first["Date"],
+        "start": rows[0]["Date"],
+        "end": rows[-1]["Date"],
+        "loc": first["Location"],
+        "ref": first["Referrer"],
+        "browser": first["Browser"],
+        "system": first["System"].strip(),
+        "width": width,
+        "first": first["FirstVisit"] == "1",
+        "hits": [{"t": r["Date"], "p": r["Path"], "e": r["Event"] == "1"} for r in rows],
+    }
+
+
+def _key(salt):
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=KDF_ITERATIONS)
+    return kdf.derive(os.environ["GOATCOUNTER_TOKEN"].encode())
+
+
+def load_visits():
+    """The existing log, or None when there isn't one yet (first run)."""
+    if not VISITS_FILE or not os.path.exists(VISITS_FILE) or os.path.getsize(VISITS_FILE) == 0:
+        return None
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    box = json.load(open(VISITS_FILE))
+    salt, iv, ct = (base64.b64decode(box[k]) for k in ("salt", "iv", "ct"))
+    return json.loads(AESGCM(_key(salt)).decrypt(iv, ct, None))
+
+
+def save_visits(visits):
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    salt, iv = os.urandom(16), os.urandom(12)
+    ct = AESGCM(_key(salt)).encrypt(iv, json.dumps(visits, separators=(",", ":")).encode(), None)
+    b64 = lambda b: base64.b64encode(b).decode()
+    box = {"v": 1, "kdf": "PBKDF2-SHA256", "iter": KDF_ITERATIONS, "salt": b64(salt), "iv": b64(iv), "ct": b64(ct),
+           "updated": datetime.now(timezone.utc).isoformat()}
+    json.dump(box, open(VISITS_FILE, "w"))
+
+
+def merge_visit(log, rec):
+    """Adds a visit, merging into an existing one with the same session."""
+    for i, old in enumerate(log):
+        if old["id"] == rec["id"]:
+            seen = {(h["t"], h["p"]) for h in old["hits"]}
+            hits = old["hits"] + [h for h in rec["hits"] if (h["t"], h["p"]) not in seen]
+            hits.sort(key=lambda h: h["t"])
+            log[i] = {**old, "hits": hits, "start": hits[0]["t"], "end": hits[-1]["t"]}
+            return
+    log.append(rec)
+
+
 def main():
     state = {"last_hit_id": None, "held": []}
     if os.path.exists(STATE_FILE):
         state.update(json.load(open(STATE_FILE)))
 
+    visits = load_visits() if VISITS_FILE else []
+    backfill = VISITS_FILE and visits is None and state["last_hit_id"] is not None
+    if visits is None:
+        visits = []
+
     if os.environ.get("EXPORT_CSV"):  # local testing against a downloaded export
         rows, last = list(csv.DictReader(open(os.environ["EXPORT_CSV"]))), state["last_hit_id"]
         for r in rows:
             r["Path"] = r.pop("2Path", r.get("Path", ""))
+    elif backfill:
+        # No visit log yet: export everything once to build it. Only visits
+        # newer than the previous run get emailed, judged by time since the
+        # export rows carry no hit ids.
+        rows, last = export_since(None)
     else:
         rows, last = export_since(state["last_hit_id"])
     first_run = state["last_hit_id"] is None and not os.environ.get("EXPORT_CSV")
 
+    now = datetime.now(timezone.utc)
+    prev_run = datetime.fromisoformat(state["last_run"]) if state.get("last_run") else now - timedelta(minutes=70)
+    email_after = prev_run - SETTLE
+
     sessions = OrderedDict()
-    for r in state["held"] + rows:
+    held_ids = {r["Session"] for r in state["held"]}
+    for r in (rows if backfill else state["held"] + rows):
         if r.get("Bot", "0") not in ("0", ""):
             continue
         sessions.setdefault(r["Session"] or r["Date"], []).append(r)
 
-    now = datetime.now(timezone.utc)
     held, sent = [], 0
-    for rows_ in sessions.values():
+    for sid, rows_ in sessions.items():
         rows_.sort(key=lambda r: r["Date"])
         latest = datetime.fromisoformat(rows_[-1]["Date"].replace("Z", "+00:00"))
         if now - latest < SETTLE:
             held.extend(rows_)
             continue
+        if VISITS_FILE:
+            merge_visit(visits, visit_record(rows_))
         if first_run:
             continue  # don't email the whole history the first time
+        if backfill and latest < email_after and sid not in held_ids:
+            continue  # already emailed by an earlier run
         send(*summarize(rows_))
         sent += 1
 
-    json.dump({"last_hit_id": last, "held": held}, open(STATE_FILE, "w"))
-    print(f"{len(rows)} new rows, {sent} emails sent, {len(held)} rows held"
-          + (" (first run, history skipped)" if first_run else ""))
+    json.dump({"last_hit_id": last, "held": held, "last_run": now.isoformat()}, open(STATE_FILE, "w"))
+    if VISITS_FILE:
+        visits.sort(key=lambda v: v["start"])
+        save_visits(visits[-MAX_VISITS:])
+    print(f"{len(rows)} new rows, {sent} emails sent, {len(held)} rows held, {len(visits)} visits logged"
+          + (" (first run, history skipped)" if first_run else "")
+          + (" (visit log backfilled)" if backfill else ""))
 
 
 if __name__ == "__main__":

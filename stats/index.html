@@ -100,6 +100,50 @@ button, input { font: inherit; color: inherit; }
 .status { color: var(--dim); font-size: 12px; }
 .loading .tiles, .loading .chart, .loading .rows, .loading .act { opacity: .45; transition: opacity .2s; }
 
+
+/* ---- visits ---- */
+.vbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.vbar h2 { font-size: 15px; font-weight: 600; margin: 0 auto 0 0; }
+.vbar h2 span { color: var(--dim); font-weight: 400; margin-left: 6px; }
+.vbar select, .vbar input { background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 10px; outline: none; }
+.vbar input { width: 240px; max-width: 100%; }
+.vbar select:focus, .vbar input:focus { border-color: var(--muted); }
+.vtable { width: 100%; border-collapse: collapse; }
+.vtable th { text-align: left; color: var(--dim); font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.vtable td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+.vtable tr.v { cursor: pointer; }
+.vtable tr.v:hover td { background: #0f0f0f; }
+.vtable tr.v[aria-expanded="true"] td { background: var(--raise); }
+.vtable td small { display: block; color: var(--dim); font-size: 12px; }
+.vtable .ref { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; border: 1px solid var(--line2); color: var(--muted); margin: 0 4px 4px 0; }
+.tag.good { color: #86efac; border-color: #14532d; }
+.tag.bad { color: #fca5a5; border-color: #4c1d1d; }
+.tag.click { color: #93c5fd; border-color: #1e3a5f; }
+.tag.new { color: #fde68a; border-color: #4d3b0a; }
+.detail td { background: #070707; padding: 14px 18px 18px; }
+.detail .dgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; }
+.detail dl { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.detail dt { color: var(--dim); }
+.detail dd { margin: 0; overflow-wrap: anywhere; }
+.timeline { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.timeline li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 4px 0; }
+.timeline .off { color: var(--dim); text-align: right; }
+.vmsg { color: var(--muted); padding: 20px 18px; font-size: 13px; }
+.vmsg form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.vmsg input { background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; min-width: 260px; outline: none; }
+.vmore { display: block; margin: 12px auto 16px; }
+@media (max-width: 760px) {
+  .vtable thead { display: none; }
+  .vtable tr.v { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+  .vtable tr.v td { border: 0; padding: 6px 14px; }
+  .vtable tr.v td:first-child { padding-top: 12px; }
+  .vtable tr.v td::before { content: attr(data-label); display: block; color: var(--dim); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
+  .vtable .ref { max-width: none; }
+  .detail .dgrid { grid-template-columns: 1fr; }
+  .vbar input { width: 100%; }
+}
+
 @media (max-width: 900px) {
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile:nth-child(2) { border-right: 0; }
@@ -134,6 +178,7 @@ button, input { font: inherit; color: inherit; }
       <button data-r="7d">7d</button>
       <button data-r="30d">30d</button>
       <button data-r="90d">90d</button>
+      <button data-r="1y">1y</button>
     </div>
     <button class="ghost" id="refresh">Refresh</button>
     <button class="ghost" id="signout">Sign out</button>
@@ -147,6 +192,36 @@ button, input { font: inherit; color: inherit; }
       <div class="tile"><div class="k">Engaged</div><div class="v num" id="tEngaged">–</div><div class="sub">stayed 8s or longer</div></div>
     </div>
     <div class="chart" id="chart"><div class="tip" id="tip" hidden></div></div>
+  </section>
+
+
+  <section class="card" id="visits" style="margin-top:16px">
+    <div class="vbar">
+      <h2>Visits<span class="num" id="vCount"></span></h2>
+      <div class="seg" id="vEng" role="group" aria-label="Engagement">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="engaged" title="Stayed 8 seconds or longer">Engaged</button>
+        <button data-f="clicked" title="Clicked a link, the resume or email">Clicked</button>
+        <button data-f="bounced" title="Left within 3 seconds without clicking">Bounced</button>
+      </div>
+      <select id="vDevice" aria-label="Device">
+        <option value="">All devices</option><option value="phone">Phone</option><option value="tablet">Tablet</option><option value="desktop">Desktop</option>
+      </select>
+      <select id="vWho" aria-label="New or returning">
+        <option value="">New and returning</option><option value="new">First visit</option><option value="returning">Returning</option>
+      </select>
+      <select id="vSort" aria-label="Sort">
+        <option value="new">Newest first</option><option value="long">Longest stay</option><option value="clicks">Most clicks</option>
+      </select>
+      <input id="vSearch" type="search" placeholder="Search place, referrer, browser, clicks" aria-label="Search visits">
+      <button class="ghost" id="vCsv">Export CSV</button>
+    </div>
+    <div class="vmsg" id="vMsg">Loading visits…</div>
+    <table class="vtable" id="vTable" hidden>
+      <thead><tr><th>When</th><th>Where</th><th>From</th><th>Device</th><th>Reached</th><th>Stayed</th><th>Clicked</th></tr></thead>
+      <tbody id="vBody"></tbody>
+    </table>
+    <button class="ghost vmore" id="vMore" hidden>Show more</button>
   </section>
 
   <div class="grid2">
@@ -214,7 +289,7 @@ button, input { font: inherit; color: inherit; }
   // the page itself holds no data and shows nothing without the token.
   const API = 'https://aryanh.goatcounter.com/api/v0';
   const KEY = 'gc-dash-token';
-  const RANGES = { '24h': [24, 'hour'], '48h': [48, 'hour'], '7d': [7 * 24, 'day'], '30d': [30 * 24, 'day'], '90d': [90 * 24, 'day'] };
+  const RANGES = { '24h': [24, 'hour'], '48h': [48, 'hour'], '7d': [7 * 24, 'day'], '30d': [30 * 24, 'day'], '90d': [90 * 24, 'day'], '1y': [365 * 24, 'day'] };
   const HOUR = 3600e3;
 
   const $ = (s, el = document) => el.querySelector(s);
@@ -376,6 +451,7 @@ button, input { font: inherit; color: inherit; }
     $('#tBounce').textContent = c.summaries ? Math.round((100 * c.quick) / c.summaries) + '%' : '–';
     $('#tEngaged').textContent = c.summaries ? Math.round((100 * c.engaged) / c.summaries) + '%' : '–';
     chart(s);
+    renderVisits();
 
     const L = data.lists;
     const flag = (id) => (id && id.length === 2 ? String.fromCodePoint(...[...id.toUpperCase()].map((ch) => 0x1f1a5 + ch.charCodeAt(0))) + ' ' : '');
@@ -517,6 +593,208 @@ button, input { font: inherit; color: inherit; }
     hit.addEventListener('touchend', leave);
   }
 
+
+  // ---- individual visits ----
+  // The visit emailer keeps a log of every finished visit, encrypted with a
+  // key derived from its GoatCounter token, on the repo's visit-data branch.
+  const VISITS_URL = 'https://raw.githubusercontent.com/harkawataryan/harkawataryan.github.io/visit-data/visits.enc';
+  const VKEY = 'gc-visit-key';
+  const US = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'Washington DC', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming' };
+  let regionNames = null;
+  try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) {}
+  const vf = { eng: 'all', device: '', who: '', sort: 'new', q: '' };
+  let visits = null, vShown = 50, vOpen = null;
+
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function decrypt(box, secret) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: b64(box.salt), iterations: box.iter }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(box.iv) }, key, b64(box.ct));
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+
+  function place(code) {
+    if (!code) return 'Unknown';
+    const [c, r] = code.split('-');
+    if (c === 'US' && US[r]) return US[r] + ', US';
+    let name = c;
+    try { name = (regionNames && regionNames.of(c)) || c; } catch (e) {}
+    return r ? `${r}, ${name}` : name;
+  }
+  const deviceOf = (w) => (!w ? 'unknown' : w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop');
+  const SEC_ORDER = ['top', 'work', 'projects', 'about'];
+
+  // Derive what a visit did from its raw hits.
+  function shape(v) {
+    const t0 = Date.parse(v.start);
+    let section = null, bucket = null;
+    const clicks = [], pages = [];
+    for (const h of v.hits) {
+      if (!h.e) { pages.push(h.p); continue; }
+      if (h.p.startsWith('click/')) { clicks.push(h.p.slice(6).replace(/\/$/, '')); continue; }
+      const m = h.p.match(/^visit\/([^/]+)\/(.+)$/);
+      if (m) { section = m[1]; bucket = m[2]; }
+    }
+    const bi = BUCKETS.indexOf(bucket);
+    const span = (Date.parse(v.end) - t0) / 1000;
+    return Object.assign({}, v, {
+      t: t0, place: place(v.loc), device: deviceOf(v.width), section, bucket, bi, clicks, pages, span,
+      engaged: bi >= 2, bounced: bi === 0 && !clicks.length,
+      // Sort key for "longest stay": the time bucket, then the span between hits.
+      stay: bi >= 0 ? bi * 1e6 + span : span,
+      text: [place(v.loc), v.loc, v.ref, v.browser, v.system, clicks.join(' '), section, pages.join(' ')].join(' ').toLowerCase(),
+    });
+  }
+
+  async function loadVisits(retryWith) {
+    const msg = $('#vMsg');
+    try {
+      const res = await fetch(VISITS_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+      if (res.status === 404) { visits = []; msg.textContent = 'No visit log yet. The visit emailer creates it on its next hourly run.'; msg.hidden = false; $('#vTable').hidden = true; return; }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const box = await res.json();
+      let list = null;
+      for (const secret of [retryWith, store.get(VKEY), token].filter(Boolean)) {
+        try { list = await decrypt(box, secret); if (secret !== token) store.set(VKEY, secret); break; } catch (e) {}
+      }
+      if (!list) return askKey();
+      visits = list.map(shape);
+      visits.updated = box.updated;
+      renderVisits();
+    } catch (e) {
+      msg.hidden = false;
+      msg.textContent = 'Could not load the visit log: ' + e.message;
+    }
+  }
+
+  // The log is locked with the emailer's token. If the dashboard was signed
+  // into with a different one, ask for it once.
+  function askKey() {
+    const msg = $('#vMsg');
+    $('#vTable').hidden = true;
+    msg.hidden = false;
+    msg.innerHTML = 'The visit log is encrypted with the GoatCounter token your visit emailer uses (the GOATCOUNTER_TOKEN repo secret), which is different from the one you signed in with. Paste it to unlock the log. It stays in this browser.<form id="vKeyForm"><input id="vKey" type="password" placeholder="Emailer token" autocomplete="off"><button class="btn">Unlock</button></form>';
+    $('#vKeyForm').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const k = $('#vKey').value.trim();
+      if (k) { msg.textContent = 'Unlocking…'; loadVisits(k); }
+    });
+  }
+
+  function filtered() {
+    if (!visits) return [];
+    const from = data ? data.start : 0;
+    const q = vf.q.trim().toLowerCase();
+    const out = visits.filter((v) =>
+      v.t >= from &&
+      (vf.eng === 'all' || (vf.eng === 'engaged' && v.engaged) || (vf.eng === 'clicked' && v.clicks.length) || (vf.eng === 'bounced' && v.bounced)) &&
+      (!vf.device || v.device === vf.device) &&
+      (!vf.who || (vf.who === 'new') === v.first) &&
+      (!q || q.split(/\s+/).every((w) => v.text.includes(w))));
+    const by = { new: (a, b) => b.t - a.t, long: (a, b) => b.stay - a.stay || b.t - a.t, clicks: (a, b) => b.clicks.length - a.clicks.length || b.t - a.t };
+    return out.sort(by[vf.sort]);
+  }
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const tag = (text, cls) => el('span', 'tag' + (cls ? ' ' + cls : ''), text);
+  const whenLbl = (t) => fmt({ month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(t);
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
+  const stayLbl = (v) => (v.bucket ? v.bucket.replace('-', '–') : v.span >= 1 ? Math.round(v.span) + 's+' : 'unknown');
+
+  function renderVisits() {
+    if (!visits) return;
+    const rows = filtered();
+    const msg = $('#vMsg'), body = $('#vBody');
+    $('#vCount').textContent = rows.length + ' of ' + visits.filter((v) => !data || v.t >= data.start).length;
+    $('#vTable').hidden = !rows.length;
+    msg.hidden = !!rows.length;
+    if (!rows.length) msg.textContent = visits.length ? 'No visits match these filters in this range.' : 'No visits logged yet.';
+    body.textContent = '';
+    for (const v of rows.slice(0, vShown)) {
+      const tr = el('tr', 'v');
+      tr.tabIndex = 0;
+      tr.setAttribute('aria-expanded', String(vOpen === v.id));
+      const c1 = el('td', 'num', whenLbl(v.t)); c1.append(el('small', '', ago(v.t)));
+      const c2 = el('td', '', v.place);
+      if (v.first) { c2.append(document.createElement('br')); c2.append(tag('first visit', 'new')); }
+      const c3 = el('td', 'ref', v.ref || 'Direct'); c3.title = v.ref || 'Direct, typed or bookmarked';
+      const c4 = el('td', '', v.device[0].toUpperCase() + v.device.slice(1)); c4.append(el('small', '', [v.browser, v.system].filter(Boolean).join(' · ')));
+      const c5 = el('td', '', v.section ? v.section[0].toUpperCase() + v.section.slice(1) : '–');
+      const c6 = el('td'); c6.append(tag(stayLbl(v), v.engaged ? 'good' : v.bounced ? 'bad' : ''));
+      const c7 = el('td');
+      if (v.clicks.length) v.clicks.forEach((c) => c7.append(tag(c, 'click'))); else c7.textContent = '–';
+      ['When', 'Where', 'From', 'Device', 'Reached', 'Stayed', 'Clicked'].forEach((l, i) => [c1, c2, c3, c4, c5, c6, c7][i].setAttribute('data-label', l));
+      tr.append(c1, c2, c3, c4, c5, c6, c7);
+      const toggle = () => { vOpen = vOpen === v.id ? null : v.id; renderVisits(); };
+      tr.addEventListener('click', toggle);
+      tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      body.append(tr);
+      if (vOpen === v.id) body.append(detail(v));
+    }
+    $('#vMore').hidden = rows.length <= vShown;
+    $('#vMore').textContent = `Show more (${rows.length - vShown} left)`;
+  }
+
+  function detail(v) {
+    const tr = el('tr', 'detail'), td = el('td');
+    td.colSpan = 7;
+    const grid = el('div', 'dgrid');
+    const dl = el('dl');
+    const add = (k, val) => { dl.append(el('dt', '', k), el('dd', '', val)); };
+    add('Started', fmt({ weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(v.t));
+    add('Location', v.place + (v.loc ? ` (${v.loc})` : ''));
+    add('Referrer', v.ref || 'Direct, typed or bookmarked');
+    add('Browser', v.browser || 'Unknown');
+    add('System', v.system || 'Unknown');
+    add('Screen', v.width ? `${v.width}px wide (${v.device})` : 'Unknown');
+    add('Visitor', v.first ? 'First visit' : 'Returning');
+    add('Deepest', v.section ? `${v.section}, stayed ${stayLbl(v)}` : 'No summary sent (left fast, or blocked)');
+    add('Session', v.id);
+    const tl = el('ol', 'timeline');
+    for (const h of v.hits) {
+      const li = el('li');
+      const off = Math.round((Date.parse(h.t) - v.t) / 1000);
+      li.append(el('span', 'off num', off < 60 ? `+${off}s` : `+${Math.floor(off / 60)}m${off % 60 ? (off % 60) + 's' : ''}`));
+      let what = h.p;
+      if (!h.e) what = 'Opened ' + h.p;
+      else if (h.p.startsWith('click/')) what = 'Clicked ' + h.p.slice(6).replace(/\/$/, '');
+      else { const m = h.p.match(/^visit\/([^/]+)\/(.+)$/); if (m) what = `Left after ${m[2]}, deepest section ${m[1]}`; }
+      li.append(el('span', '', what));
+      tl.append(li);
+    }
+    const right = el('div'); right.append(el('div', 'k', 'Timeline'), tl);
+    right.firstChild.style.cssText = 'color:var(--dim);font-size:12px;margin-bottom:6px';
+    grid.append(dl, right);
+    td.append(grid);
+    tr.append(td);
+    return tr;
+  }
+
+  function csv() {
+    const rows = filtered();
+    const esc = (x) => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"';
+    const head = ['started', 'location', 'referrer', 'device', 'browser', 'system', 'screen_width', 'first_visit', 'deepest_section', 'stayed', 'clicks', 'pages'];
+    const lines = [head.join(',')].concat(rows.map((v) => [v.start, v.place, v.ref, v.device, v.browser, v.system, v.width, v.first, v.section, v.bucket, v.clicks.join(' '), v.pages.join(' ')].map(esc).join(',')));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+    a.download = 'aryanh-visits-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  for (const b of $$('#vEng button')) b.addEventListener('click', () => {
+    vf.eng = b.dataset.f; vShown = 50;
+    $$('#vEng button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    renderVisits();
+  });
+  $('#vDevice').addEventListener('change', (e) => { vf.device = e.target.value; vShown = 50; renderVisits(); });
+  $('#vWho').addEventListener('change', (e) => { vf.who = e.target.value; vShown = 50; renderVisits(); });
+  $('#vSort').addEventListener('change', (e) => { vf.sort = e.target.value; renderVisits(); });
+  let sq;
+  $('#vSearch').addEventListener('input', (e) => { clearTimeout(sq); sq = setTimeout(() => { vf.q = e.target.value; vShown = 50; renderVisits(); }, 120); });
+  $('#vCsv').addEventListener('click', csv);
+  $('#vMore').addEventListener('click', () => { vShown += 50; renderVisits(); });
+
   // ---- wiring ----
   function show(app) {
     $('#gate').hidden = app;
@@ -524,6 +802,8 @@ button, input { font: inherit; color: inherit; }
   }
   function signOut(msg) {
     store.del(KEY);
+    store.del(VKEY);
+    visits = null;
     token = null;
     data = null;
     show(false);
@@ -544,6 +824,7 @@ button, input { font: inherit; color: inherit; }
       if (e.auth) return signOut('That token was rejected.');
     }
     load();
+    loadVisits();
   }
 
   $('#signin').addEventListener('submit', async (ev) => {
@@ -564,7 +845,7 @@ button, input { font: inherit; color: inherit; }
     }
   });
   $('#signout').addEventListener('click', () => signOut());
-  $('#refresh').addEventListener('click', load);
+  $('#refresh').addEventListener('click', () => { load(); loadVisits(); });
   for (const b of $$('#ranges button')) {
     b.setAttribute('aria-pressed', String(b.dataset.r === range));
     b.addEventListener('click', () => {
