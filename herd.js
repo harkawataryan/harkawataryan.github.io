@@ -8,9 +8,9 @@
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const POLICIES = [
-    { id: 'herd', name: 'Herd', note: 'prefill + wait, one cost' },
-    { id: 'prefix', name: 'Prefix only', note: 'cached prompt, however busy' },
-    { id: 'kv', name: 'Cache fullness', note: 'most free memory' },
+    { id: 'herd', name: 'Herd', note: 'cached prompt, unless busy' },
+    { id: 'prefix', name: 'Prefix only', note: 'cached prompt, always' },
+    { id: 'kv', name: 'Cache fullness', note: 'most free cache' },
     { id: 'll', name: 'Least-loaded', note: 'shortest queue' },
     { id: 'rr', name: 'Round-robin', note: 'take turns' },
   ];
@@ -77,10 +77,9 @@
       if (policy === 'kv') return lightest(all, (i) => fullness(i) + 0.95 * cost(i, -1));
       // Prefix only: always a server that has the prompt cached, however busy.
       if (policy === 'prefix') { const h = holders(p); return h.length ? lightest(h, (i) => w.servers[i].cache.indexOf(p)) : lightest(all, (i) => fullness(i) + 0.95 * cost(i, -1)); }
-      // Herd: one cost per server, in time to prefill: the work queued ahead
-      // of the request (its expected wait), the server's speed, and the
-      // prefill it skips if the prompt is cached there. Lowest wins, which is
-      // the real gateway's pack policy without the eviction term.
+      // Herd: the server where this request would finish soonest, counting
+      // the work ahead of it, the server's speed, and whether the prompt is
+      // already cached there.
       return lightest(all, (i) => fullness(i) + 0.95 * cost(i, p));
     };
     void rnd;
@@ -187,7 +186,7 @@
     });
     const herd = vals.find((x) => x.id === 'herd'), rr = vals.find((x) => x.id === 'rr');
     if (!warm) bnote.textContent = 'warming up…';
-    else if (herd.v && rr.v && rr.v / herd.v >= 1.05) bnote.textContent = `Herd ${(rr.v / herd.v).toFixed(1)}× faster than round-robin here`;
+    else if (herd.v && rr.v && rr.v / herd.v >= 1.05) bnote.textContent = `Herd ${(rr.v / herd.v).toFixed(1)}× faster than round-robin`;
     else bnote.textContent = `${Math.round(100 * herd.hit)}% of Herd's requests hit a cache`;
     void ol;
   }
