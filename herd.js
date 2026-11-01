@@ -1,89 +1,103 @@
-// Live Herd demo for the project card: a small load-balancing simulation.
-// Requests arrive at eight LLM servers and the visitor picks how they're
-// routed. Cache-aware routing is what Herd does. Everything here is derived
-// from the simulation; nothing is scripted to look good.
+// Live Herd demo. Four routing policies run side by side on identical
+// traffic; the canvas shows the one selected and the scoreboard underneath
+// ranks all four by p99 time to first token, updating live. Nothing is
+// scripted: the numbers come from the simulation.
 (function () {
   const shot = document.querySelector('.project .shot[data-live-herd]');
   if (!shot) return;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+  const POLICIES = [
+    { id: 'herd', name: 'Herd', note: 'cache-aware' },
+    { id: 'p2c', name: 'Power of two', note: 'two random, pick the lighter' },
+    { id: 'll', name: 'Least-loaded', note: 'shortest queue' },
+    { id: 'rr', name: 'Round-robin', note: 'take turns' },
+  ];
+  const N = 8, PROMPTS = 5, SPEED = 2;
+  const ZIPF = [0.42, 0.24, 0.15, 0.11, 0.08];
+  const PCOL = ['#ff4d00', '#3b6cff', '#14a085', '#8b5cf6', '#e0a100'];
+
   const sim = document.createElement('div');
   sim.className = 'sim';
   sim.innerHTML = `
     <div class="bar">
-      <div class="seg" role="group" aria-label="Routing policy">
-        <button type="button" data-p="rr" aria-pressed="true">Round-robin</button>
-        <button type="button" data-p="ll">Least-loaded</button>
-        <button type="button" data-p="p2c">Power of two</button>
-        <button type="button" data-p="herd">Herd</button>
-      </div>
-      <label class="traffic">Traffic <input type="range" min="3" max="12" step="1" value="7" aria-label="Requests per second"> <span class="rps">7/s</span></label>
-      <span class="tip">Click a server to slow it down</span>
+      <span class="lbl">Viewing</span>
+      <div class="seg" role="group" aria-label="Routing policy">${POLICIES.map((p) => `<button type="button" data-p="${p.id}" aria-pressed="${p.id === 'herd'}">${p.name}</button>`).join('')}</div>
+      <label class="traffic"><span class="lbl">Traffic</span><input type="range" min="3" max="12" step="1" value="7" aria-label="Requests per second"><span class="rps">7/s</span></label>
     </div>
-    <div class="cv"><canvas aria-label="Requests flowing to eight servers"></canvas></div>
-    <div class="stats">
-      <div class="stat"><div class="k">p99 first token</div><div class="v" data-s="p99">–</div></div>
-      <div class="stat"><div class="k">Cache hits</div><div class="v" data-s="hits">–</div></div>
-      <div class="stat"><div class="k">Longest queue</div><div class="v" data-s="q">–</div></div>
+    <div class="cv"><canvas aria-label="Requests flowing to eight GPU servers"></canvas><span class="tip">Tap a GPU to slow it down</span></div>
+    <div class="board">
+      <div class="bhead"><span>p99 first token · same traffic for all</span><span class="bnote"></span></div>
+      <ol>${POLICIES.map((p) => `<li data-p="${p.id}"><span class="nm">${p.name}<small>${p.note}</small></span><span class="track"><i></i></span><span class="val">–</span></li>`).join('')}</ol>
     </div>`;
   const cv = sim.querySelector('canvas'), ctx = cv.getContext('2d');
   if (!ctx) return;
 
-  const N = 8, PROMPTS = 5, SPEED = 2;
-  let RATE = 7;
-  const SLOW = new Set([2, 5]); // servers 3 and 6 start at a third of the speed
-  const W_ZIPF = [0.42, 0.24, 0.15, 0.11, 0.08];
-  const PCOL = ['#ff4d00', '#3b82f6', '#16a34a', '#a855f7', '#eab308'];
-  let policy = 'rr', rr = 0, t = 0, nextArrival = 0;
-  const servers = Array.from({ length: N }, () => ({ q: [], busy: null, cache: [] }));
-  const flying = [], lat = [];
-  let hitN = 0, totalN = 0;
-
-  const zipf = () => { let r = Math.random(), i = 0; while (r > W_ZIPF[i] && i < PROMPTS - 1) { r -= W_ZIPF[i]; i++; } return i; };
-  const load = (i) => servers[i].q.length + (servers[i].busy ? 1 : 0);
-  const isSlow = (i) => SLOW.has(i);
-  const cost = (i, p) => (servers[i].cache.includes(p) ? 0.35 : 1) * (isSlow(i) ? 3 : 1);
-  function pick(p) {
-    if (policy === 'rr') { rr = (rr + 1) % N; return rr; }
-    let best = 0; for (let i = 1; i < N; i++) if (load(i) < load(best)) best = i;
-    if (policy === 'll') return best;
-    if (policy === 'p2c') { const a = Math.floor(Math.random() * N); let b = Math.floor(Math.random() * (N - 1)); if (b >= a) b++; return load(a) <= load(b) ? a : b; }
-    // Herd: a server that already holds the prompt, unless it's noticeably busier than the least-loaded one.
-    const holders = [...Array(N).keys()].filter((i) => servers[i].cache.includes(p) && load(i) <= load(best) + 1);
-    if (!holders.length) return best;
-    let b = holders[0]; for (const i of holders) if (load(i) < load(b)) b = i; return b;
+  // One shared traffic script so every policy sees the same requests.
+  let rate = 7;
+  const slow = new Set([2, 5]);
+  let seedA = 12345;
+  const randA = () => { seedA = (seedA * 1103515245 + 12345) & 0x7fffffff; return seedA / 0x7fffffff; };
+  const script = []; // { t, p }
+  let scriptT = 0;
+  function nextArrival(upTo) {
+    while (scriptT <= upTo) {
+      let r = randA(), i = 0; while (r > ZIPF[i] && i < PROMPTS - 1) { r -= ZIPF[i]; i++; }
+      script.push({ t: scriptT, p: i });
+      scriptT += -Math.log(1 - randA()) / rate;
+    }
   }
-  function remember(i, p) { const c = servers[i].cache, k = c.indexOf(p); if (k >= 0) c.splice(k, 1); c.unshift(p); if (c.length > 2) c.pop(); }
-  function reset() { servers.forEach((s) => { s.q = []; s.busy = null; }); flying.length = 0; lat.length = 0; hitN = totalN = 0; }
 
-  function step(dt) {
-    t += dt;
-    while (nextArrival <= t) {
-      const p = zipf();
-      flying.push({ p, s: pick(p), born: nextArrival, prog: 0 });
-      nextArrival += -Math.log(1 - Math.random()) / RATE;
-    }
-    for (let i = flying.length - 1; i >= 0; i--) {
-      const f = flying[i]; f.prog += dt * 1.6;
-      if (f.prog >= 1) { servers[f.s].q.push(f); flying.splice(i, 1); }
-    }
-    servers.forEach((sv, i) => {
-      if (sv.busy && t >= sv.busy.done) {
-        lat.push(t - sv.busy.born); if (lat.length > 300) lat.shift();
-        totalN++; if (sv.busy.hit) hitN++; remember(i, sv.busy.p); sv.busy = null;
+  function makeWorld(policy) {
+    let seed = 777;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const w = { policy, t: 0, cursor: 0, rr: 0, servers: Array.from({ length: N }, () => ({ q: [], busy: null, cache: [] })), flying: [], lat: [], hit: 0, done: 0 };
+    const load = (i) => w.servers[i].q.length + (w.servers[i].busy ? 1 : 0);
+    const cost = (i, p) => (w.servers[i].cache.includes(p) ? 0.35 : 1) * (slow.has(i) ? 3 : 1);
+    w.pick = (p) => {
+      if (policy === 'rr') { w.rr = (w.rr + 1) % N; return w.rr; }
+      let best = 0; for (let i = 1; i < N; i++) if (load(i) < load(best)) best = i;
+      if (policy === 'll') return best;
+      if (policy === 'p2c') { const a = Math.floor(rnd() * N); let b = Math.floor(rnd() * (N - 1)); if (b >= a) b++; return load(a) <= load(b) ? a : b; }
+      const holders = [...Array(N).keys()].filter((i) => w.servers[i].cache.includes(p) && load(i) <= load(best) + 1);
+      if (!holders.length) return best;
+      let b = holders[0]; for (const i of holders) if (load(i) < load(b)) b = i; return b;
+    };
+    w.step = (dt) => {
+      w.t += dt;
+      nextArrival(w.t);
+      while (w.cursor < script.length && script[w.cursor].t <= w.t) {
+        const a = script[w.cursor++];
+        w.flying.push({ p: a.p, s: w.pick(a.p), born: a.t, prog: 0 });
       }
-      if (!sv.busy && sv.q.length) { const r = sv.q.shift(); r.hit = sv.cache.includes(r.p); r.done = t + 0.95 * cost(i, r.p); sv.busy = r; }
-    });
+      for (let i = w.flying.length - 1; i >= 0; i--) {
+        const f = w.flying[i]; f.prog += dt * 1.6;
+        if (f.prog >= 1) { w.servers[f.s].q.push(f); w.flying.splice(i, 1); }
+      }
+      w.servers.forEach((sv, i) => {
+        if (sv.busy && w.t >= sv.busy.done) {
+          w.lat.push(w.t - sv.busy.born); if (w.lat.length > 300) w.lat.shift();
+          w.done++; if (sv.busy.hit) w.hit++;
+          const c = sv.cache, k = c.indexOf(sv.busy.p); if (k >= 0) c.splice(k, 1); c.unshift(sv.busy.p); if (c.length > 2) c.pop();
+          sv.busy = null;
+        }
+        if (!sv.busy && sv.q.length) { const r = sv.q.shift(); r.hit = sv.cache.includes(r.p); r.done = w.t + 0.95 * cost(i, r.p); sv.busy = r; }
+      });
+    };
+    w.p99 = () => {
+      if (w.lat.length < 20) return null;
+      const all = w.lat.concat(w.servers.flatMap((sv) => sv.q.map((r) => w.t - r.born))).sort((a, b) => a - b);
+      return all[Math.max(0, Math.ceil(all.length * 0.99) - 1)];
+    };
+    return w;
   }
-  // Waiting requests count at their current age, so a backed-up queue shows in p99 right away.
-  function p99() {
-    if (lat.length < 20) return null;
-    const all = lat.concat(servers.flatMap((sv) => sv.q.map((r) => t - r.born))).sort((a, b) => a - b);
-    return all[Math.max(0, Math.ceil(all.length * 0.99) - 1)];
-  }
+  let worlds = POLICIES.map((p) => makeWorld(p.id));
+  let viewing = 'herd';
+  function reset() { script.length = 0; scriptT = 0; seedA = 12345; worlds = POLICIES.map((p) => makeWorld(p.id)); }
 
+  // ---- drawing ----
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  let W = 0, H = 0;
+  let W = 0, H = 0, geom = null;
   function size() {
     const dpr = Math.min(2, devicePixelRatio || 1), r = cv.parentElement.getBoundingClientRect();
     if (!r.width) return;
@@ -92,38 +106,72 @@
     if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  function draw() {
+  function rrect(x, y, w, h, r) { if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); } else { ctx.beginPath(); ctx.rect(x, y, w, h); } }
+  function draw(w) {
     ctx.clearRect(0, 0, W, H);
-    const fg = css('--fg'), mut = css('--muted'), line = css('--line'), acc = css('--acc'), bg = css('--bg');
-    const sx = Math.round(W * 0.46), sy = (i) => 16 + i * ((H - 32) / (N - 1));
-    geom = { sx, y0: 16, dy: (H - 32) / (N - 1) };
-    ctx.font = '500 11px Inter, sans-serif';
-    ctx.fillStyle = mut; ctx.fillText('requests', 10, H / 2 - 12);
-    for (const f of flying) {
-      const k = f.prog, x = 30 + (sx - 30 - 30) * k, y = H / 2 + (sy(f.s) - H / 2) * (k * k * (3 - 2 * k));
-      ctx.fillStyle = PCOL[f.p]; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill();
+    const fg = css('--fg'), mut = css('--muted'), line = css('--line'), acc = css('--acc'), bg = css('--bg'), panel = css('--panel') || line;
+    const sx = Math.round(W * 0.44), top = 22, dy = (H - 44) / (N - 1), sy = (i) => top + i * dy;
+    geom = { sx, y0: top, dy };
+    // lanes
+    ctx.strokeStyle = line; ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) { ctx.beginPath(); ctx.moveTo(sx - 110, sy(i)); ctx.lineTo(sx - 6, sy(i)); ctx.stroke(); }
+    ctx.font = '600 10px Inter, sans-serif'; ctx.fillStyle = mut; ctx.textAlign = 'left';
+    ctx.fillText('INCOMING', 12, 14);
+    ctx.textAlign = 'right'; ctx.fillText('GPU', sx - 12, 14); ctx.textAlign = 'left';
+    ctx.fillText('QUEUE', sx + 40, 14);
+    // requests in flight
+    for (const f of w.flying) {
+      const k = f.prog, x = 18 + (sx - 24 - 18) * k, y = H / 2 + (sy(f.s) - H / 2) * (k * k * (3 - 2 * k));
+      ctx.fillStyle = PCOL[f.p]; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fill();
     }
-    servers.forEach((sv, i) => {
-      const x = sx, y = sy(i), sl = isSlow(i);
-      ctx.strokeStyle = sl ? acc : line; ctx.fillStyle = bg;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y - 9, 18, 18, 4) : ctx.rect(x, y - 9, 18, 18); ctx.fill(); ctx.stroke();
-      if (sv.busy) { ctx.fillStyle = PCOL[sv.busy.p]; ctx.fillRect(x + 5, y - 4, 8, 8); }
-      ctx.fillStyle = sl ? acc : mut; ctx.textAlign = 'right'; ctx.fillText(sl ? 'slow gpu ' + (i + 1) : 'gpu ' + (i + 1), x - 8, y + 4); ctx.textAlign = 'left';
-      sv.cache.forEach((p, j) => { ctx.fillStyle = PCOL[p]; ctx.globalAlpha = .45; ctx.fillRect(x + 24 + j * 6, y - 10, 4, 4); ctx.globalAlpha = 1; });
-      const q = sv.q.length, room = Math.max(4, Math.floor((W - x - 52) / 7));
-      for (let j = 0; j < Math.min(q, room); j++) { ctx.fillStyle = PCOL[sv.q[j].p]; ctx.fillRect(x + 24 + j * 7, y - 3, 5, 8); }
-      if (q > room) { ctx.fillStyle = fg; ctx.fillText('+' + (q - room), x + 24 + room * 7, y + 4); }
+    w.servers.forEach((sv, i) => {
+      const x = sx, y = sy(i), sl = slow.has(i);
+      // server body
+      ctx.fillStyle = sl ? 'rgba(255,77,0,.10)' : css('--bg');
+      ctx.strokeStyle = sl ? acc : mut;
+      rrect(x, y - 10, 30, 20, 5); ctx.fill(); ctx.stroke();
+      if (sv.busy) { ctx.fillStyle = PCOL[sv.busy.p]; rrect(x + 4, y - 6, 12, 12, 3); ctx.fill(); }
+      // cached prompts as two small pips
+      sv.cache.forEach((p, j) => { ctx.fillStyle = PCOL[p]; ctx.globalAlpha = .55; rrect(x + 20, y - 7 + j * 8, 5, 5, 1.5); ctx.fill(); ctx.globalAlpha = 1; });
+      // label
+      ctx.font = (sl ? '600' : '500') + ' 11px Inter, sans-serif'; ctx.fillStyle = sl ? acc : fg; ctx.textAlign = 'right';
+      ctx.fillText('GPU ' + (i + 1), x - 12, y + 4);
+      if (sl) { ctx.font = '600 9px Inter, sans-serif'; ctx.fillStyle = acc; ctx.fillText('SLOW', x - 12, y - 8); }
+      ctx.textAlign = 'left';
+      // queue
+      const q = sv.q.length, room = Math.max(4, Math.floor((W - x - 60) / 8));
+      for (let j = 0; j < Math.min(q, room); j++) { ctx.fillStyle = PCOL[sv.q[j].p]; rrect(x + 40 + j * 8, y - 5, 6, 10, 1.5); ctx.fill(); }
+      if (q > room) { ctx.font = '600 10px Inter, sans-serif'; ctx.fillStyle = fg; ctx.fillText('+' + (q - room), x + 42 + room * 8, y + 4); }
     });
   }
-  const out = {}; sim.querySelectorAll('[data-s]').forEach((el) => { out[el.dataset.s] = el; });
-  function readout() {
-    const v = p99();
-    out.p99.innerHTML = v == null ? '–' : v.toFixed(1) + '<small>s</small>';
-    out.p99.classList.toggle('hot', v != null && v > 8);
-    out.hits.textContent = totalN ? Math.round((100 * hitN) / totalN) + '%' : '–';
-    out.q.textContent = Math.max(...servers.map((s) => s.q.length));
+
+  // ---- scoreboard ----
+  const rows = Object.fromEntries([...sim.querySelectorAll('.board li')].map((li) => [li.dataset.p, li]));
+  const bnote = sim.querySelector('.bnote');
+  const WARM = 80; // completed requests per policy before the board shows numbers
+  function board() {
+    const warm = worlds.every((w) => w.done >= WARM);
+    sim.querySelector('.board').classList.toggle('warming', !warm);
+    const vals = worlds.map((w) => ({ id: w.policy, v: warm ? w.p99() : null, hit: w.done ? w.hit / w.done : 0 }));
+    const max = Math.max(1, ...vals.map((x) => x.v || 0));
+    const sorted = [...vals].sort((a, b) => (a.v ?? 1e9) - (b.v ?? 1e9));
+    const ol = sim.querySelector('.board ol');
+    sorted.forEach((x, i) => {
+      const li = rows[x.id];
+      li.style.order = i;
+      li.classList.toggle('best', i === 0 && x.v != null);
+      li.classList.toggle('viewing', x.id === viewing);
+      li.querySelector('i').style.width = x.v == null ? '0%' : Math.max(3, (100 * x.v) / max) + '%';
+      li.querySelector('.val').textContent = x.v == null ? '–' : x.v.toFixed(1) + 's';
+    });
+    const herd = vals.find((x) => x.id === 'herd'), rr = vals.find((x) => x.id === 'rr');
+    if (!warm) bnote.textContent = 'warming up…';
+    else if (herd.v && rr.v && rr.v / herd.v >= 1.05) bnote.textContent = `Herd ${(rr.v / herd.v).toFixed(1)}× faster than round-robin`;
+    else bnote.textContent = `${Math.round(100 * herd.hit)}% of Herd's requests hit a cache`;
+    void ol;
   }
 
+  // ---- loop ----
   let visible = false, raf = 0, last = 0, acc = 0;
   function frame(now) {
     raf = 0;
@@ -132,10 +180,10 @@
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now;
     size();
-    step(dt * SPEED);
-    draw();
+    for (const w of worlds) w.step(dt * SPEED);
+    draw(worlds.find((w) => w.policy === viewing));
     acc += dt;
-    if (acc > 0.25) { acc = 0; readout(); }
+    if (acc > 0.3) { acc = 0; board(); }
     if (!sim.classList.contains('on')) sim.classList.add('on');
     raf = requestAnimationFrame(frame);
   }
@@ -143,30 +191,28 @@
   new IntersectionObserver((es) => { visible = es[0].isIntersecting; kick(); }, { rootMargin: '80px' }).observe(shot);
   document.addEventListener('visibilitychange', kick);
 
+  // ---- controls ----
   sim.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
-    policy = b.dataset.p; reset();
+    viewing = b.dataset.p;
     sim.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    readout();
+    board();
   }));
+  sim.querySelectorAll('.board li').forEach((li) => li.addEventListener('click', () => sim.querySelector(`.seg [data-p="${li.dataset.p}"]`).click()));
   const range = sim.querySelector('input[type="range"]'), rps = sim.querySelector('.rps');
-  range.addEventListener('input', () => { RATE = Number(range.value); rps.textContent = RATE + '/s'; });
-  // Clicking a server toggles it between healthy and slow.
-  let geom = null;
+  range.addEventListener('input', () => { rate = Number(range.value); rps.textContent = rate + '/s'; });
+  const tip = sim.querySelector('.tip');
+  function hitServer(e) {
+    if (!geom) return -1;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    const i = Math.round((y - geom.y0) / geom.dy);
+    return x >= geom.sx - 70 && x <= geom.sx + 40 && i >= 0 && i < N && Math.abs(y - (geom.y0 + i * geom.dy)) <= geom.dy / 2 ? i : -1;
+  }
   cv.addEventListener('click', (e) => {
-    if (!geom) return;
-    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    if (x < geom.sx - 70 || x > geom.sx + 60) return;
-    const i = Math.round((y - geom.y0) / geom.dy);
-    if (i < 0 || i >= N || Math.abs(y - (geom.y0 + i * geom.dy)) > geom.dy / 2) return;
-    if (SLOW.has(i)) SLOW.delete(i); else SLOW.add(i);
-    sim.querySelector('.tip').textContent = SLOW.size ? `${SLOW.size} slow server${SLOW.size > 1 ? 's' : ''} · click to toggle` : 'All healthy · click a server to slow it';
+    const i = hitServer(e); if (i < 0) return;
+    if (slow.has(i)) slow.delete(i); else slow.add(i);
+    tip.textContent = slow.size ? `${slow.size} slow · tap a GPU to toggle` : 'All healthy · tap a GPU to slow it';
   });
-  cv.addEventListener('mousemove', (e) => {
-    if (!geom) return;
-    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    const i = Math.round((y - geom.y0) / geom.dy);
-    cv.style.cursor = x >= geom.sx - 70 && x <= geom.sx + 60 && i >= 0 && i < N && Math.abs(y - (geom.y0 + i * geom.dy)) <= geom.dy / 2 ? 'pointer' : 'default';
-  });
+  cv.addEventListener('mousemove', (e) => { cv.style.cursor = hitServer(e) >= 0 ? 'pointer' : 'default'; });
 
   shot.appendChild(sim);
   shot.classList.add('has-sim');
