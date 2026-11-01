@@ -431,7 +431,7 @@ button, input { font: inherit; color: inherit; }
       if (b === '0-3s') quick += n;
       if (BUCKETS.indexOf(b) >= 2) engaged += n;
     }
-    const order = ['top', 'work', 'projects', 'about'];
+    const order = ['top', 'work', 'projects', 'herd', 'concertify', 'clouds', 'about'];
     const secs = [...sections.values()].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name)).map((s) => ({
       name: 'Reached ' + s.name,
       count: s.count,
@@ -622,7 +622,7 @@ button, input { font: inherit; color: inherit; }
     return r ? `${r}, ${name}` : name;
   }
   const deviceOf = (w) => (!w ? 'unknown' : w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop');
-  const SEC_ORDER = ['top', 'work', 'projects', 'about'];
+  const SEC_ORDER = ['top', 'work', 'projects', 'herd', 'concertify', 'clouds', 'about'];
 
   // Derive what a visit did from its raw hits.
   function shape(v) {

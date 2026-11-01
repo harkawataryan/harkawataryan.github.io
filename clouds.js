@@ -311,20 +311,12 @@ void main() {
   panel.innerHTML = `
     <label>Coverage <input type="range" min="0.2" max="0.8" step="0.01" value="0.48" aria-label="Cloud coverage"></label>
     <label>Type <input type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Cloud type, stratus to cumulonimbus"><span class="tname">cumulus</span></label>
-    <span class="seg" role="group" aria-label="View">
-      <button type="button" data-v="0" aria-pressed="true">Shaded</button>
-      <button type="button" data-v="1">Density</button>
-      <button type="button" data-v="2">March cost</button>
-    </span>`;
+`;
   const [covIn, typeIn] = panel.querySelectorAll('input');
   const tname = panel.querySelector('.tname');
   const typeName = (v) => (v < 0.33 ? 'stratus' : v < 0.72 ? 'cumulus' : 'cumulonimbus');
   covIn.addEventListener('input', () => { cov = Number(covIn.value); sunMoved = true; });
   typeIn.addEventListener('input', () => { type = Number(typeIn.value); tname.textContent = typeName(type); sunMoved = true; });
-  panel.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-    view = Number(b.dataset.v); frames = 0;
-    panel.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  }));
   // Pointer events on the panel must not start a sun drag.
   for (const ev of ['pointerdown', 'pointermove', 'pointerup']) panel.addEventListener(ev, (e) => e.stopPropagation());
   panel.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); });

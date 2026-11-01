@@ -24,12 +24,17 @@
         <ul class="sugg" role="listbox" hidden></ul>
       </div>
       <select aria-label="City"></select>
+      <select class="radius" aria-label="Radius"><option value="25">25 mi</option><option value="50" selected>50 mi</option><option value="100">100 mi</option></select>
+      <select class="when" aria-label="When"><option value="">Any time</option><option value="30">Next 30 days</option><option value="weekend">Weekends</option></select>
       <button type="submit">Rank shows</button>
     </form>
+    <div class="genres" aria-label="Genres"></div>
     <ol class="results" aria-live="polite"></ol>
     <div class="foot"><span class="status"></span></div>`;
   const form = ui.querySelector('form'), chips = ui.querySelector('.chips'), input = ui.querySelector('input'), sugg = ui.querySelector('.sugg'),
-    select = ui.querySelector('select'), button = ui.querySelector('button'), list = ui.querySelector('.results'), status = ui.querySelector('.status');
+    select = ui.querySelector('select'), radiusSel = ui.querySelector('.radius'), whenSel = ui.querySelector('.when'),
+    button = ui.querySelector('button[type=submit]'), list = ui.querySelector('.results'), status = ui.querySelector('.status'), genreBox = ui.querySelector('.genres');
+  let genresOn = new Set(), lastGenres = [];
   CITIES.forEach(([name], i) => { const o = document.createElement('option'); o.value = i; o.textContent = name; select.append(o); });
   const near = document.createElement('option'); near.value = 'near'; near.textContent = 'Near me'; select.append(near);
 
@@ -52,8 +57,23 @@
     input.disabled = artists.length >= 5;
   }
 
+  const LABEL = { direct: 'artist match', genre: 'genre fit', proximity: 'distance', soon: 'date' };
+  function renderGenres(genres) {
+    lastGenres = genres || [];
+    genreBox.textContent = '';
+    genreBox.hidden = !lastGenres.length;
+    for (const { genre, count } of lastGenres.slice(0, 10)) {
+      const b = el('button', 'g' + (genresOn.has(genre) ? ' on' : ''), genre);
+      b.type = 'button';
+      b.append(el('small', '', ' ' + count));
+      b.addEventListener('click', () => { genresOn.has(genre) ? genresOn.delete(genre) : genresOn.add(genre); renderGenres(lastGenres); rank(); });
+      genreBox.append(b);
+    }
+  }
+
   function renderResults(data, note) {
     list.textContent = '';
+    renderGenres(data.genres);
     if (!data.recommendations.length) {
       list.append(el('li', 'empty', 'No shows near there line up with those artists in the next few months. Try a bigger city.'));
     }
@@ -74,6 +94,20 @@
       const bar = el('span', 'meter'); const fill = el('i'); fill.style.width = pct + '%'; bar.append(fill); score.append(bar);
       a.append(img, body, score);
       li.append(a);
+      // Score breakdown: the four signals the ranker weighs, shown on hover or tap.
+      if (r.components) {
+        const why = el('span', 'breakdown');
+        for (const k of ['direct', 'genre', 'proximity', 'soon']) {
+          const v = Math.round(100 * (r.components[k] || 0));
+          const row = el('span', 'brow');
+          row.append(el('span', 'bk', LABEL[k]));
+          const m = el('span', 'bm'); const f = el('i'); f.style.width = v + '%'; m.append(f); row.append(m);
+          row.append(el('span', 'bv', v + ''));
+          why.append(row);
+        }
+        li.append(why);
+        li.addEventListener('click', (e) => { if (e.target.closest('a') && !e.target.closest('.breakdown')) return; li.classList.toggle('open'); });
+      }
       list.append(li);
     }
     status.textContent = note;
@@ -95,14 +129,19 @@
     let city;
     try { city = await cityOf(); } catch (e) { status.textContent = 'Location was blocked; pick a city instead.'; select.value = '0'; busy = false; button.disabled = false; return; }
     status.textContent = 'Ranking…';
+    const q = new URLSearchParams({ artists: artists.map((a) => a.id).join(','), lat: city.lat, lng: city.lng, radius: radiusSel.value, limit: 6 });
+    if (whenSel.value === 'weekend') q.set('weekend', '1');
+    if (whenSel.value === '30') q.set('to', new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
+    if (genresOn.size) q.set('genres', [...genresOn].join(','));
     const slow = setTimeout(() => { if (my === seq) status.textContent = 'Waking the server (free tier, up to 30s)…'; }, 3000);
     try {
-      const res = await fetch(`${API}/recommendations?artists=${artists.map((a) => a.id).join(',')}&lat=${city.lat}&lng=${city.lng}&radius=50`);
+      const res = await fetch(`${API}/recommendations?${q}`);
       if (my !== seq) return;
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       live = true;
-      renderResults(data, `Ranked ${data.scanned} shows within ${data.radiusMiles} mi of ${city.name} against ${data.artists.map((a) => a.name).join(', ')}.`);
+      const kept = data.filteredOut ? `${data.scanned - data.filteredOut} of ${data.scanned}` : `${data.scanned}`;
+      renderResults(data, `Ranked ${kept} shows within ${data.radiusMiles} mi of ${city.name} for ${data.artists.map((a) => a.name).join(', ')}. Tap a show for its score breakdown.`);
     } catch (e) {
       if (my === seq) status.textContent = 'Could not reach Concertify right now. Showing the example instead.';
     } finally {
@@ -147,6 +186,7 @@
   });
   input.addEventListener('blur', () => setTimeout(() => { found = []; showSugg(); }, 150));
   form.addEventListener('submit', (e) => { e.preventDefault(); rank(); });
+  for (const sel of [select, radiusSel, whenSel]) sel.addEventListener('change', () => { if (live || artists.length) rank(); });
 
   // Wake the free-tier server as soon as the card scrolls near, so the first
   // real request is quick.

@@ -46,9 +46,10 @@
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('loaded')));
 
   const revealables = [...document.querySelectorAll('[data-rv]')];
-  const rules = [...document.querySelectorAll('.hero, .row')];
+  const rules = [...document.querySelectorAll('.screen')];
   if (still || !('IntersectionObserver' in window)) {
     revealables.forEach((el) => el.classList.add('in'));
+    document.querySelectorAll('.screen').forEach((el) => el.classList.add('in'));
     rules.forEach((el) => el.classList.add('drawn'));
   } else {
     // Items that enter together are staggered so a section cascades in.
@@ -87,23 +88,6 @@
 
   const bar = document.querySelector('.progress');
   const heroName = document.querySelector('.hero h1');
-  // Project cards grow slightly as they reach the middle of the screen and
-  // shrink again as they leave. Scaling the card's two halves rather than the
-  // card itself keeps clear of the reveal transition on the article.
-  const focusables = still ? [] : [...document.querySelectorAll('.project.wide')].map((card) => ({ card, parts: [...card.children] }));
-  function focus() {
-    const vh = innerHeight, mid = vh / 2;
-    for (const f of focusables) {
-      const r = f.card.getBoundingClientRect();
-      if (r.bottom < -100 || r.top > vh + 100) continue;
-      // Full size while the middle of the screen is anywhere inside the
-      // card, so a tall card on a phone never shrinks while it's being read.
-      const gap = r.top > mid ? r.top - mid : r.bottom < mid ? mid - r.bottom : 0;
-      const k = Math.min(1, gap / (vh * 0.55)) ** 2;
-      const scale = (1 - 0.08 * k).toFixed(4), opacity = (1 - 0.12 * k).toFixed(3);
-      for (const el of f.parts) { el.style.transform = 'scale(' + scale + ')'; el.style.opacity = opacity; }
-    }
-  }
   let ticking = false;
   function onScroll() {
     ticking = false;
@@ -114,7 +98,6 @@
       heroName.style.transform = 'translate3d(0,' + (y * 0.22).toFixed(1) + 'px,0)';
       heroName.style.opacity = Math.max(0, 1 - y / 650).toFixed(3);
     }
-    focus();
   }
   window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
   window.addEventListener('resize', () => requestAnimationFrame(onScroll));
@@ -127,7 +110,7 @@
   }
 
   // Deepest section reached.
-  const order = ['top', 'work', 'projects', 'about'];
+  const order = ['top', 'work', 'herd', 'concertify', 'clouds', 'about'];
   let deepest = 0;
   const io = new IntersectionObserver((es) => {
     for (const e of es) {
@@ -137,6 +120,19 @@
     }
   }, { rootMargin: '0px 0px -10% 0px' });
   document.querySelectorAll('section[id]').forEach((el) => io.observe(el));
+
+  // Side dots follow whichever screen fills most of the viewport.
+  const dots = [...document.querySelectorAll('.dots a')];
+  if (dots.length && 'IntersectionObserver' in window) {
+    const ratio = new Map();
+    const dio = new IntersectionObserver((es) => {
+      for (const e of es) { ratio.set(e.target.id, e.intersectionRatio); if (e.intersectionRatio >= 0.25) e.target.classList.add('in'); }
+      let best = null, bestR = 0;
+      for (const [id, r] of ratio) if (r > bestR) { best = id; bestR = r; }
+      dots.forEach((d) => d.classList.toggle('on', d.dataset.dot === best));
+    }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    document.querySelectorAll('section.screen[id]').forEach((el) => dio.observe(el));
+  }
 
   // Outbound and file clicks: "click/<label>", with the project name when inside a card.
   document.addEventListener('click', (ev) => {
