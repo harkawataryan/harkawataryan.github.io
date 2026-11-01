@@ -281,7 +281,8 @@ h1 .line > span { display: inline-block; }
 .project .shot.has-sim { cursor: default; }
 .project .shot .sim { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; opacity: 0; transition: opacity 0.8s ease; background: var(--bg); }
 .project .shot .sim.on { opacity: 1; }
-.project .shot .sim canvas { width: 100%; height: 100%; display: block; }
+.sim .cv { position: relative; min-height: 0; overflow: hidden; }
+.project .shot .sim canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 .sim .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .sim .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .sim .seg button { background: none; border: 0; padding: 5px 10px; font: 500 12px Inter, sans-serif; color: var(--muted); cursor: pointer; }

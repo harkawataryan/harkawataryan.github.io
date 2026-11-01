@@ -20,7 +20,7 @@
       <label class="traffic">Traffic <input type="range" min="3" max="12" step="1" value="7" aria-label="Requests per second"> <span class="rps">7/s</span></label>
       <span class="tip">Click a server to slow it down</span>
     </div>
-    <canvas aria-label="Requests flowing to eight servers"></canvas>
+    <div class="cv"><canvas aria-label="Requests flowing to eight servers"></canvas></div>
     <div class="stats">
       <div class="stat"><div class="k">p99 first token</div><div class="v" data-s="p99">–</div></div>
       <div class="stat"><div class="k">Cache hits</div><div class="v" data-s="hits">–</div></div>
@@ -85,7 +85,7 @@
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   let W = 0, H = 0;
   function size() {
-    const dpr = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect();
+    const dpr = Math.min(2, devicePixelRatio || 1), r = cv.parentElement.getBoundingClientRect();
     if (!r.width) return;
     W = r.width; H = r.height;
     const bw = Math.round(W * dpr), bh = Math.round(H * dpr);
