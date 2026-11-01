@@ -8,7 +8,7 @@
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const POLICIES = [
-    { id: 'herd', name: 'Herd', note: 'cached prompt, unless busy' },
+    { id: 'herd', name: 'Herd', note: 'cached prompt, if not busy' },
     { id: 'prefix', name: 'Prefix only', note: 'cached prompt, always' },
     { id: 'kv', name: 'Cache fullness', note: 'most free cache' },
     { id: 'll', name: 'Least-loaded', note: 'shortest queue' },
