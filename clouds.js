@@ -206,7 +206,7 @@ void main() {
   const uRes = U('uRes'), uTime = U('uTime'), uSun = U('uSun'), uFrame = U('uFrame'), uBlend = U('uBlend'), uHist = U('uHist');
   const uTex = gl.getUniformLocation(copy, 'uTex');
   const uCov = U('uCov'), uType = U('uType'), uView = U('uView');
-  let cov = 0.48, type = 0.55, view = 0;
+  let cov = 0.48, type = 0.55, view = 0, covT = 0.48, typeT = 0.55;
 
   // Two textures ping-pong: each frame blends the new render into the last
   // one, so the per-pixel jitter averages out into a smooth image.
@@ -256,7 +256,12 @@ void main() {
       cur ^= 1;
       // First frames and sun moves blend fast so the picture responds; then
       // settle into a slow blend that smooths the jitter away.
-      const blend = frames < 2 ? 1 : sunMoved ? 0.45 : 0.14;
+      // Ease the sliders' values toward their targets.
+      const k = Math.min(1, (now - (frame.prev || now)) / 1000 * 5);
+      frame.prev = now;
+      const moving = Math.abs(covT - cov) > 0.001 || Math.abs(typeT - type) > 0.001;
+      cov += (covT - cov) * k; type += (typeT - type) * k;
+      const blend = frames < 2 ? 1 : sunMoved || moving ? 0.35 : 0.14;
       sunMoved = false;
       gl.useProgram(prog);
       gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo);
@@ -314,14 +319,17 @@ void main() {
   const panel = document.createElement('div');
   panel.className = 'cloudctl';
   panel.innerHTML = `
-    <label>Coverage <input type="range" min="0.2" max="0.8" step="0.01" value="0.48" aria-label="Cloud coverage"></label>
+    <label>Coverage <input type="range" min="0" max="1" step="0.005" value="0.45" aria-label="Cloud coverage"></label>
     <label>Type <input type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Cloud type, stratus to cumulonimbus"><span class="tname">cumulus</span></label>
 `;
   const [covIn, typeIn] = panel.querySelectorAll('input');
   const tname = panel.querySelector('.tname');
   const typeName = (v) => (v < 0.33 ? 'stratus' : v < 0.72 ? 'cumulus' : 'cumulonimbus');
-  covIn.addEventListener('input', () => { cov = Number(covIn.value); sunMoved = true; });
-  typeIn.addEventListener('input', () => { type = Number(typeIn.value); tname.textContent = typeName(type); sunMoved = true; });
+  // The slider position maps to a narrower, perceptually even coverage band,
+  // and the value eases toward the target over a moment so the sky changes
+  // smoothly instead of snapping.
+  covIn.addEventListener('input', () => { const x = Number(covIn.value); covT = 0.34 + 0.32 * (0.75 * x + 0.25 * x * x); });
+  typeIn.addEventListener('input', () => { typeT = Number(typeIn.value); tname.textContent = typeName(typeT); });
   // Pointer events on the panel must not start a sun drag.
   for (const ev of ['pointerdown', 'pointermove', 'pointerup']) panel.addEventListener(ev, (e) => e.stopPropagation());
   panel.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); });
