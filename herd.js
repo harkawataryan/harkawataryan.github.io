@@ -17,7 +17,8 @@
         <button type="button" data-p="p2c">Power of two</button>
         <button type="button" data-p="herd">Herd</button>
       </div>
-      <label><input type="checkbox" checked> Two slow servers</label>
+      <label class="traffic">Traffic <input type="range" min="3" max="12" step="1" value="7" aria-label="Requests per second"> <span class="rps">7/s</span></label>
+      <span class="tip">Click a server to slow it down</span>
     </div>
     <canvas aria-label="Requests flowing to eight servers"></canvas>
     <div class="stats">
@@ -28,18 +29,19 @@
   const cv = sim.querySelector('canvas'), ctx = cv.getContext('2d');
   if (!ctx) return;
 
-  const N = 8, PROMPTS = 5, RATE = 7, SPEED = 2;
-  const SLOW = [2, 5]; // servers 3 and 6 run at a third of the speed
+  const N = 8, PROMPTS = 5, SPEED = 2;
+  let RATE = 7;
+  const SLOW = new Set([2, 5]); // servers 3 and 6 start at a third of the speed
   const W_ZIPF = [0.42, 0.24, 0.15, 0.11, 0.08];
   const PCOL = ['#ff4d00', '#3b82f6', '#16a34a', '#a855f7', '#eab308'];
-  let policy = 'rr', slow = true, rr = 0, t = 0, nextArrival = 0;
+  let policy = 'rr', rr = 0, t = 0, nextArrival = 0;
   const servers = Array.from({ length: N }, () => ({ q: [], busy: null, cache: [] }));
   const flying = [], lat = [];
   let hitN = 0, totalN = 0;
 
   const zipf = () => { let r = Math.random(), i = 0; while (r > W_ZIPF[i] && i < PROMPTS - 1) { r -= W_ZIPF[i]; i++; } return i; };
   const load = (i) => servers[i].q.length + (servers[i].busy ? 1 : 0);
-  const isSlow = (i) => slow && SLOW.includes(i);
+  const isSlow = (i) => SLOW.has(i);
   const cost = (i, p) => (servers[i].cache.includes(p) ? 0.35 : 1) * (isSlow(i) ? 3 : 1);
   function pick(p) {
     if (policy === 'rr') { rr = (rr + 1) % N; return rr; }
@@ -94,6 +96,7 @@
     ctx.clearRect(0, 0, W, H);
     const fg = css('--fg'), mut = css('--muted'), line = css('--line'), acc = css('--acc'), bg = css('--bg');
     const sx = Math.round(W * 0.46), sy = (i) => 16 + i * ((H - 32) / (N - 1));
+    geom = { sx, y0: 16, dy: (H - 32) / (N - 1) };
     ctx.font = '500 11px Inter, sans-serif';
     ctx.fillStyle = mut; ctx.fillText('requests', 10, H / 2 - 12);
     for (const f of flying) {
@@ -144,7 +147,25 @@
     sim.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     readout();
   }));
-  sim.querySelector('input').addEventListener('change', (e) => { slow = e.target.checked; reset(); readout(); });
+  const range = sim.querySelector('input[type="range"]'), rps = sim.querySelector('.rps');
+  range.addEventListener('input', () => { RATE = Number(range.value); rps.textContent = RATE + '/s'; });
+  // Clicking a server toggles it between healthy and slow.
+  let geom = null;
+  cv.addEventListener('click', (e) => {
+    if (!geom) return;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (x < geom.sx - 70 || x > geom.sx + 60) return;
+    const i = Math.round((y - geom.y0) / geom.dy);
+    if (i < 0 || i >= N || Math.abs(y - (geom.y0 + i * geom.dy)) > geom.dy / 2) return;
+    if (SLOW.has(i)) SLOW.delete(i); else SLOW.add(i);
+    sim.querySelector('.tip').textContent = SLOW.size ? `${SLOW.size} slow server${SLOW.size > 1 ? 's' : ''} · click to toggle` : 'All healthy · click a server to slow it';
+  });
+  cv.addEventListener('mousemove', (e) => {
+    if (!geom) return;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    const i = Math.round((y - geom.y0) / geom.dy);
+    cv.style.cursor = x >= geom.sx - 70 && x <= geom.sx + 60 && i >= 0 && i < N && Math.abs(y - (geom.y0 + i * geom.dy)) <= geom.dy / 2 ? 'pointer' : 'default';
+  });
 
   const hint = document.createElement('span');
   hint.className = 'hint';
