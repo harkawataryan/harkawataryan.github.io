@@ -86,7 +86,8 @@
     const dpr = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect();
     if (!r.width) return;
     W = r.width; H = r.height;
-    if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const bw = Math.round(W * dpr), bh = Math.round(H * dpr);
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   function draw() {
