@@ -125,7 +125,7 @@
     <h3>Herd</h3>
     <p class="stack">Go · Envoy · gRPC · Kubernetes · Prometheus</p>
 
-    <p>A load balancer for LLMs running across several GPU servers. It prices every placement in one unit, blocks of prompt to prefill: what the server would have to prefill, how long the request would wait there for a batch slot or KV memory, and what the placement would evict from the cache. Conversations stay on the server that holds them. On an 8-server benchmark of agent sessions under cache pressure it had the lowest tail latency of seven policies, including reimplementations of the llm-d and NVIDIA Dynamo routers, and with two slow servers it held 17s where round-robin reached 293s.</p>
+    <p>A load balancer for LLMs running across several GPU servers. For each request it estimates, as one number, how long each server would take to start answering: the part of the prompt that server hasn't already processed, the time the request would spend in its queue, and the useful cached work it would push out. The request goes to the lowest estimate, and a conversation stays on the server that remembers it. On an 8-server benchmark of agent conversations, with more prompts in play than the servers can keep cached, it had the lowest worst-case response times of seven routing policies, including copies of the routers in Google's and NVIDIA's inference stacks. With two slow servers it kept the slowest responses at 17s where round-robin reached 293s.</p>
     <p class="links"><a href="https://github.com/harkawataryan/herd">Source</a></p>
     </div>
   </div>
