@@ -87,6 +87,23 @@
 
   const bar = document.querySelector('.progress');
   const heroName = document.querySelector('.hero h1');
+  // Project cards grow slightly as they reach the middle of the screen and
+  // shrink again as they leave. Scaling the card's two halves rather than the
+  // card itself keeps clear of the reveal transition on the article.
+  const focusables = still ? [] : [...document.querySelectorAll('.project.wide')].map((card) => ({ card, parts: [...card.children] }));
+  function focus() {
+    const vh = innerHeight, mid = vh / 2;
+    for (const f of focusables) {
+      const r = f.card.getBoundingClientRect();
+      if (r.bottom < -100 || r.top > vh + 100) continue;
+      // Full size while the middle of the screen is anywhere inside the
+      // card, so a tall card on a phone never shrinks while it's being read.
+      const gap = r.top > mid ? r.top - mid : r.bottom < mid ? mid - r.bottom : 0;
+      const k = Math.min(1, gap / (vh * 0.55)) ** 2;
+      const scale = (1 - 0.08 * k).toFixed(4), opacity = (1 - 0.12 * k).toFixed(3);
+      for (const el of f.parts) { el.style.transform = 'scale(' + scale + ')'; el.style.opacity = opacity; }
+    }
+  }
   let ticking = false;
   function onScroll() {
     ticking = false;
@@ -97,8 +114,10 @@
       heroName.style.transform = 'translate3d(0,' + (y * 0.22).toFixed(1) + 'px,0)';
       heroName.style.opacity = Math.max(0, 1 - y / 650).toFixed(3);
     }
+    focus();
   }
   window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  window.addEventListener('resize', () => requestAnimationFrame(onScroll));
   onScroll();
 
   // GoatCounter custom events. No-ops when the counter is blocked.

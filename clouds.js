@@ -24,6 +24,9 @@ uniform vec3 uSun;
 uniform float uFrame;
 uniform float uBlend;
 uniform sampler2D uHist;
+uniform float uCov;   // coverage 0..1
+uniform float uType;  // 0 stratus .. 1 cumulonimbus
+uniform int uView;    // 0 shaded, 1 density, 2 march cost
 
 const float BASE = 700.0, THICK = 2200.0;
 const float SIGMA = 0.011;          // extinction per metre at density 1
@@ -47,13 +50,21 @@ float shape(vec3 p) {
 }
 float detail(vec3 p) { return 0.55 * noise(p) + 0.3 * noise(p * 2.3 + 7.0) + 0.15 * noise(p * 5.1 + 19.0); }
 float heightFrac(vec3 p) { return clamp((p.y - BASE) / THICK, 0.0, 1.0); }
-float heightGradient(float h) { return remap(h, 0.0, 0.12, 0.0, 1.0) * remap(h, 0.55, 0.95, 1.0, 0.0); }
+// Vertical profile per cloud type, as in the renderer: stratus flat and low,
+// cumulus taller with a rounded top, cumulonimbus filling the layer.
+float heightGradient(float h) {
+  float stratus = remap(h, 0.0, 0.08, 0.0, 1.0) * remap(h, 0.15, 0.3, 1.0, 0.0);
+  float cumulus = remap(h, 0.0, 0.12, 0.0, 1.0) * remap(h, 0.55, 0.95, 1.0, 0.0);
+  float cumulonimbus = remap(h, 0.0, 0.1, 0.0, 1.0) * remap(h, 0.75, 1.0, 1.0, 0.0);
+  float a = clamp(uType * 2.0, 0.0, 1.0), b = clamp(uType * 2.0 - 1.0, 0.0, 1.0);
+  return mix(mix(stratus, cumulus, a), cumulonimbus, b);
+}
 
 float density(vec3 p, bool cheap) {
   float h = heightFrac(p);
   vec3 wind = vec3(14.0, 0.0, 5.0) * uTime;
   vec3 sp = p + wind; sp.xz += h * 120.0;
-  float coverage = 0.48 + 0.3 * noise((p.xz + wind.xz * 0.3).xyy * 0.00022);
+  float coverage = clamp(uCov + 0.3 * noise((p.xz + wind.xz * 0.3).xyy * 0.00022) - 0.15, 0.0, 1.0);
   float base = shape(sp * (1.0 / 2600.0));
   base = remap(base, 0.42, 1.0, 0.0, 1.0) * heightGradient(h);
   base = remap(base, 1.0 - coverage, 1.0, 0.0, 1.0) * coverage;
@@ -117,12 +128,13 @@ void main() {
     float jitter = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y + 0.0113 * uFrame));
     float stepSize = (t1 - t0) / float(STEPS);
     float cosT = dot(rd, uSun);
-    float t = t0 + jitter * stepSize, trans = 1.0, depthAcc = 0.0, depthW = 0.0;
+    float t = t0 + jitter * stepSize, trans = 1.0, depthAcc = 0.0, depthW = 0.0, lit = 0.0;
     vec3 radiance = vec3(0.0);
     for (int i = 0; i < STEPS; i++) {
       vec3 p = ro + rd * t;
       float dens = density(p, false);
       if (dens > 0.0) {
+        lit += 1.0;
         float od = lightDepth(p);
         vec3 light = scattered(od, cosT, heightFrac(p), sunset);
         float st = exp(-dens * SIGMA * stepSize);
@@ -140,8 +152,19 @@ void main() {
     radiance *= fade;
     trans = mix(1.0, trans, fade);
     col = radiance + bg * trans;
+    if (uView == 1) {
+      // Density: what the noise and weather produce before any lighting.
+      col = mix(vec3(0.06, 0.08, 0.14), vec3(0.95), 1.0 - trans);
+    } else if (uView == 2) {
+      // March cost: how many of the steps along this ray hit cloud and paid
+      // for the light samples. Dark is cheap, orange is expensive.
+      float c = lit / float(STEPS);
+      col = mix(vec3(0.05, 0.05, 0.08), mix(vec3(0.15, 0.3, 0.8), vec3(1.0, 0.3, 0.0), c * 2.2), smoothstep(0.0, 0.3, c));
+    }
+  } else if (uView != 0) {
+    col = vec3(0.06, 0.08, 0.14);
   }
-  vec3 fresh = pow(tonemap(col), vec3(1.0 / 2.2));
+  vec3 fresh = uView == 0 ? pow(tonemap(col), vec3(1.0 / 2.2)) : col;
   vec3 hist = texture2D(uHist, v).rgb;
   gl_FragColor = vec4(mix(hist, fresh, uBlend), 1.0);
 }`;
@@ -182,6 +205,8 @@ void main() {
   const U = (n) => gl.getUniformLocation(prog, n);
   const uRes = U('uRes'), uTime = U('uTime'), uSun = U('uSun'), uFrame = U('uFrame'), uBlend = U('uBlend'), uHist = U('uHist');
   const uTex = gl.getUniformLocation(copy, 'uTex');
+  const uCov = U('uCov'), uType = U('uType'), uView = U('uView');
+  let cov = 0.48, type = 0.55, view = 0;
 
   // Two textures ping-pong: each frame blends the new render into the last
   // one, so the per-pixel jitter averages out into a smooth image.
@@ -239,6 +264,9 @@ void main() {
       gl.uniform1f(uFrame, frames % 64);
       gl.uniform1f(uBlend, blend);
       gl.uniform3fv(uSun, sunDir());
+      gl.uniform1f(uCov, cov);
+      gl.uniform1f(uType, type);
+      gl.uniform1i(uView, view);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.useProgram(copy);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -276,6 +304,31 @@ void main() {
   shot.addEventListener('dragstart', (e) => e.preventDefault());
 
   shot.appendChild(canvas);
+  // Controls for the things the renderer itself exposes: coverage, cloud
+  // type, and debug views of the density field and the march cost.
+  const panel = document.createElement('div');
+  panel.className = 'cloudctl';
+  panel.innerHTML = `
+    <label>Coverage <input type="range" min="0.2" max="0.8" step="0.01" value="0.48" aria-label="Cloud coverage"></label>
+    <label>Type <input type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Cloud type, stratus to cumulonimbus"><span class="tname">cumulus</span></label>
+    <span class="seg" role="group" aria-label="View">
+      <button type="button" data-v="0" aria-pressed="true">Shaded</button>
+      <button type="button" data-v="1">Density</button>
+      <button type="button" data-v="2">March cost</button>
+    </span>`;
+  const [covIn, typeIn] = panel.querySelectorAll('input');
+  const tname = panel.querySelector('.tname');
+  const typeName = (v) => (v < 0.33 ? 'stratus' : v < 0.72 ? 'cumulus' : 'cumulonimbus');
+  covIn.addEventListener('input', () => { cov = Number(covIn.value); sunMoved = true; });
+  typeIn.addEventListener('input', () => { type = Number(typeIn.value); tname.textContent = typeName(type); sunMoved = true; });
+  panel.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    view = Number(b.dataset.v); frames = 0;
+    panel.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  // Pointer events on the panel must not start a sun drag.
+  for (const ev of ['pointerdown', 'pointermove', 'pointerup']) panel.addEventListener(ev, (e) => e.stopPropagation());
+  panel.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); });
+  shot.appendChild(panel);
   const hint = document.createElement('span');
   hint.className = 'hint';
   hint.innerHTML = '<i></i>Live · drag to move the sun';

@@ -27,7 +27,7 @@
       <button type="submit">Rank shows</button>
     </form>
     <ol class="results" aria-live="polite"></ol>
-    <div class="foot"><span class="status"></span><span class="hint"><i></i>Live · real shows</span></div>`;
+    <div class="foot"><span class="status"></span></div>`;
   const form = ui.querySelector('form'), chips = ui.querySelector('.chips'), input = ui.querySelector('input'), sugg = ui.querySelector('.sugg'),
     select = ui.querySelector('select'), button = ui.querySelector('button'), list = ui.querySelector('.results'), status = ui.querySelector('.status');
   CITIES.forEach(([name], i) => { const o = document.createElement('option'); o.value = i; o.textContent = name; select.append(o); });
@@ -160,6 +160,6 @@
   renderChips();
   renderResults(SAMPLE, `Example: ${SAMPLE.scanned} shows within ${SAMPLE.radiusMiles} mi of ${SAMPLE.city}, ranked for ${SAMPLE.artists.map((a) => a.name).join(', ')}. Add your own.`);
   shot.appendChild(ui);
-  shot.classList.add('has-demo', 'has-live');
+  shot.classList.add('has-demo');
   requestAnimationFrame(() => ui.classList.add('on'));
 })();

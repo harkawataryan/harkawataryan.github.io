@@ -167,10 +167,6 @@
     cv.style.cursor = x >= geom.sx - 70 && x <= geom.sx + 60 && i >= 0 && i < N && Math.abs(y - (geom.y0 + i * geom.dy)) <= geom.dy / 2 ? 'pointer' : 'default';
   });
 
-  const hint = document.createElement('span');
-  hint.className = 'hint';
-  hint.innerHTML = '<i></i>Live simulation';
-  sim.querySelector('.bar').appendChild(hint);
   shot.appendChild(sim);
-  shot.classList.add('has-sim', 'has-live');
+  shot.classList.add('has-sim');
 })();

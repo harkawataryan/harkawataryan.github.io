@@ -255,6 +255,7 @@ h1 .line > span { display: inline-block; }
 .project.wide .shot { height: 100%; min-height: 100%; }
 .project.wide .shot img { height: 100%; object-fit: cover; object-position: left top; }
 .project.wide .info { display: flex; flex-direction: column; }
+.project.wide > * { will-change: transform; transform-origin: center; }
 .project.wide .info .links { margin-top: auto; padding-top: 6px; }
 .project.wide:first-child { padding-top: 0; border-top: 0; }
 .project.wide .shot img { aspect-ratio: 16 / 10; }
@@ -370,3 +371,15 @@ h1 .line > span { display: inline-block; }
 .sim .traffic input[type="range"] { width: 90px; accent-color: var(--acc); vertical-align: middle; }
 .sim .rps { font-variant-numeric: tabular-nums; min-width: 28px; display: inline-block; }
 .sim .tip { color: var(--muted); font-size: 11px; }
+
+/* Cloud renderer controls, overlaid at the bottom of the card. */
+.cloudctl { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0)); color: #fff; font: 500 11px Inter, sans-serif; letter-spacing: .01em; cursor: default; }
+.cloudctl label { display: inline-flex; align-items: center; gap: 6px; }
+.cloudctl input[type="range"] { width: 76px; accent-color: #ff6a2b; margin: 0; }
+.cloudctl .tname { min-width: 76px; opacity: .85; }
+.cloudctl .seg { display: inline-flex; margin-left: auto; border: 1px solid rgba(255,255,255,.35); border-radius: 7px; overflow: hidden; backdrop-filter: blur(6px); }
+.cloudctl .seg button { background: rgba(0,0,0,.25); border: 0; color: #fff; padding: 4px 8px; font: 500 11px Inter, sans-serif; cursor: pointer; }
+.cloudctl .seg button + button { border-left: 1px solid rgba(255,255,255,.3); }
+.cloudctl .seg button[aria-pressed="true"] { background: #fff; color: #111; }
+.project .shot.has-live .hint { bottom: auto; top: 12px; }
+@media (max-width: 480px) { .cloudctl { gap: 6px 10px; } .cloudctl input[type="range"] { width: 64px; } .cloudctl .seg { margin-left: 0; } }
