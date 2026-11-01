@@ -250,11 +250,16 @@ h1 .line > span { display: inline-block; }
 /* Live clouds on the renderer card. The card spans the row, the canvas sits
    over the screenshot and fades in once it has drawn, and unlike the other
    cards it stays in color, because the point is that it's running. */
-.project.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: end; padding-top: 28px; border-top: 1px solid var(--line); }
+.project.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 32px; align-items: stretch; padding-top: 28px; border-top: 1px solid var(--line); }
+/* The visual fills the row so its top and bottom line up with the text. */
+.project.wide .shot { height: 100%; min-height: 100%; }
+.project.wide .shot img { height: 100%; object-fit: cover; object-position: left top; }
+.project.wide .info { display: flex; flex-direction: column; }
+.project.wide .info .links { margin-top: auto; padding-top: 6px; }
 .project.wide:first-child { padding-top: 0; border-top: 0; }
 .project.wide .shot img { aspect-ratio: 16 / 10; }
 .projects { gap: 36px; }
-.project.wide .info h3 { margin-top: 0; font-size: 24px; }
+.project.wide .info h3 { margin-top: -5px; font-size: 24px; line-height: 1.15; }
 .project.wide .info p { font-size: 15px; }
 .project .shot { position: relative; }
 .project .shot canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; touch-action: pan-y; }
