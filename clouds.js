@@ -235,7 +235,9 @@ void main() {
   const SCALE = 0.75;
   function size() {
     const r = shot.getBoundingClientRect();
-    const w = Math.max(2, Math.round(r.width * SCALE)), h = Math.max(2, Math.round(r.height * SCALE));
+    let w = Math.max(2, Math.round(r.width * SCALE)), h = Math.max(2, Math.round(r.height * SCALE));
+    const budget = 230000; // pixels per frame, about 560x410
+    if (w * h > budget) { const k = Math.sqrt(budget / (w * h)); w = Math.round(w * k); h = Math.round(h * k); }
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; allocate(w, h); }
   }
 
@@ -244,6 +246,7 @@ void main() {
   function frame(now) {
     raf = 0;
     if (!visible || document.hidden) return;
+    if (document.documentElement.classList.contains('scrolling')) { raf = requestAnimationFrame(frame); return; }
     if (now - last >= FRAME) {
       last = now;
       size();
