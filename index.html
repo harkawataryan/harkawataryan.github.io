@@ -22,7 +22,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-size='62' font-weight='700' text-anchor='middle' fill='%23fff' font-family='Helvetica,Arial,sans-serif'>A</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
 </head>
 <body>
 <div class="progress" aria-hidden="true"></div>
@@ -139,8 +139,8 @@
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
 
-    <p>Finds the concerts near you worth going to, ranked by how much you actually listen to each artist on Spotify. Ticketmaster supplies the candidates; a Go service scores every show on artist overlap, genre fit, distance and date, with weights that PyTorch retrains for each person from their thumbs up and down, and a group mode ranks for several friends' tastes at once. 500+ people have used it. Ticketmaster allows 5 requests a second, so a Redis cache that merges duplicate requests and a limiter that fetches what's on screen first cut the first load from 9s to 2.5s. The ranking on the left is live: add your own artists.</p>
-    <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
+    <p>Finds the concerts near you worth going to, ranked by how much you actually listen to each artist on Spotify. Ticketmaster supplies the candidates; a Go service scores every show on artist overlap, genre fit, distance and date, with weights that PyTorch retrains for each person from their thumbs up and down, and a group mode ranks for several friends' tastes at once. 500+ people have used it. Ticketmaster allows 5 requests a second, so a Redis cache that merges duplicate requests and a limiter that fetches what's on screen first cut the first load from 9s to 2.5s. The card on the left is the real thing: it calls the same API as the app, so add your own artists and it ranks tonight's actual shows.</p>
+    <p class="links"><a class="primary" href="https://concertify-cm6k.onrender.com">Open the live app ↗</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
     </div>
   </div>
 </section>
@@ -180,7 +180,7 @@
 <script src="site.js?v=28" defer></script>
 <script src="clouds.js?v=10" defer></script>
 <script src="herd.js?v=12" defer></script>
-<script src="concertify.js?v=3" defer></script>
+<script src="concertify.js?v=4" defer></script>
 <script data-goatcounter="https://aryanh.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

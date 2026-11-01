@@ -17,6 +17,10 @@
   const ui = document.createElement('div');
   ui.className = 'demo';
   ui.innerHTML = `
+    <div class="head">
+      <span class="live"><i></i>Live<small>real shows from Ticketmaster, ranked by Concertify's own API</small></span>
+      <a class="open" href="https://concertify-cm6k.onrender.com" target="_blank" rel="noopener">Open the app ↗</a>
+    </div>
     <form class="bar" autocomplete="off">
       <div class="chips" aria-label="Artists"></div>
       <div class="pick">
@@ -30,7 +34,7 @@
     </form>
     <div class="genres" aria-label="Genres"></div>
     <ol class="results" aria-live="polite"></ol>
-    <div class="foot"><span class="status"></span></div>`;
+    <div class="foot"><span class="status"></span><span class="legend" aria-label="Score components"><i class="c-direct"></i>artist<i class="c-genre"></i>genre<i class="c-proximity"></i>distance<i class="c-soon"></i>date</span></div>`;
   const form = ui.querySelector('form'), chips = ui.querySelector('.chips'), input = ui.querySelector('input'), sugg = ui.querySelector('.sugg'),
     select = ui.querySelector('select'), radiusSel = ui.querySelector('.radius'), whenSel = ui.querySelector('.when'),
     button = ui.querySelector('button[type=submit]'), list = ui.querySelector('.results'), status = ui.querySelector('.status'), genreBox = ui.querySelector('.genres');
@@ -58,6 +62,7 @@
   }
 
   const LABEL = { direct: 'artist match', genre: 'genre fit', proximity: 'distance', soon: 'date' };
+  const WEIGHT = { direct: 0.55, genre: 0.30, proximity: 0.08, soon: 0.07 }; // the ranker's default weights
   function renderGenres(genres) {
     lastGenres = genres || [];
     genreBox.textContent = '';
@@ -91,7 +96,16 @@
       const score = el('span', 'score');
       const pct = Math.round(Math.min(1, r.affinity / 0.6) * 100);
       score.append(el('b', '', pct + '%'));
-      const bar = el('span', 'meter'); const fill = el('i'); fill.style.width = pct + '%'; bar.append(fill); score.append(bar);
+      // The score is a weighted sum of four signals; draw each one's share
+      // so the ranking's reasoning is visible at a glance.
+      const bar = el('span', 'meter');
+      if (r.components) {
+        for (const k of ['direct', 'genre', 'proximity', 'soon']) {
+          const seg = el('i', 'c-' + k); seg.style.width = Math.round(100 * Math.min(1, (WEIGHT[k] * (r.components[k] || 0)) / 0.6)) + '%';
+          seg.title = LABEL[k] + ' ' + Math.round(100 * (r.components[k] || 0)); bar.append(seg);
+        }
+      } else { const fill = el('i', 'c-genre'); fill.style.width = pct + '%'; bar.append(fill); }
+      score.append(bar);
       a.append(img, body, score);
       li.append(a);
       // Score breakdown: the four signals the ranker weighs, shown on hover or tap.
@@ -101,7 +115,7 @@
           const v = Math.round(100 * (r.components[k] || 0));
           const row = el('span', 'brow');
           row.append(el('span', 'bk', LABEL[k]));
-          const m = el('span', 'bm'); const f = el('i'); f.style.width = v + '%'; m.append(f); row.append(m);
+          const m = el('span', 'bm'); const f = el('i', 'c-' + k); f.style.width = v + '%'; m.append(f); row.append(m);
           row.append(el('span', 'bv', v + ''));
           why.append(row);
         }
@@ -129,7 +143,7 @@
     let city;
     try { city = await cityOf(); } catch (e) { status.textContent = 'Location was blocked; pick a city instead.'; select.value = '0'; busy = false; button.disabled = false; return; }
     status.textContent = 'Ranking…';
-    const q = new URLSearchParams({ artists: artists.map((a) => a.id).join(','), lat: city.lat, lng: city.lng, radius: radiusSel.value, limit: 6 });
+    const q = new URLSearchParams({ artists: artists.map((a) => a.id).join(','), lat: city.lat, lng: city.lng, radius: radiusSel.value, limit: 8 });
     if (whenSel.value === 'weekend') q.set('weekend', '1');
     if (whenSel.value === '30') q.set('to', new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
     if (genresOn.size) q.set('genres', [...genresOn].join(','));
@@ -141,7 +155,8 @@
       const data = await res.json();
       live = true;
       const kept = data.filteredOut ? `${data.scanned - data.filteredOut} of ${data.scanned}` : `${data.scanned}`;
-      renderResults(data, `Ranked ${kept} shows within ${data.radiusMiles} mi of ${city.name} for ${data.artists.map((a) => a.name).join(', ')}. Tap a show for its score breakdown.`);
+      ui.classList.add('is-live');
+      renderResults(data, `Live: ranked ${kept} shows within ${data.radiusMiles} mi of ${city.name} for ${data.artists.map((a) => a.name).join(', ')}. Tap a show for its score breakdown.`);
     } catch (e) {
       if (my === seq) status.textContent = 'Could not reach Concertify right now. Showing the example instead.';
     } finally {
@@ -194,11 +209,13 @@
   new IntersectionObserver((es) => {
     if (!es[0].isIntersecting || woke) return;
     woke = true;
-    fetch('https://concertify-cm6k.onrender.com/health', { mode: 'no-cors' }).catch(() => {});
+    // Once the server answers, replace the example with a live ranking so
+    // the card shows real, current shows without anyone touching it.
+    fetch('https://concertify-cm6k.onrender.com/health', { mode: 'no-cors' }).then(() => { if (!live && !busy) rank(); }).catch(() => {});
   }, { rootMargin: '400px' }).observe(shot);
 
   renderChips();
-  renderResults(SAMPLE, `Example: ${SAMPLE.scanned} shows within ${SAMPLE.radiusMiles} mi of ${SAMPLE.city}, ranked for ${SAMPLE.artists.map((a) => a.name).join(', ')}. Add your own.`);
+  renderResults(SAMPLE, `Example from ${SAMPLE.city} while the server wakes up. Add your own artists or pick a city.`);
   shot.appendChild(ui);
   shot.classList.add('has-demo');
   requestAnimationFrame(() => ui.classList.add('on'));
