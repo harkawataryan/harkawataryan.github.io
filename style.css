@@ -86,8 +86,7 @@ img { max-width: 100%; height: auto; display: block; }
 /* ---- top bar (fixed) ---- */
 .top {
   position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   border-bottom: 1px solid var(--rule);
   font-family: "Inter Tight", Inter, sans-serif;
   font-weight: 600;

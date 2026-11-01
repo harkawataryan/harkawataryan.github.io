@@ -128,7 +128,7 @@
   function frame(now) {
     raf = 0;
     if (!visible || document.hidden) { last = 0; return; }
-    if (document.documentElement.classList.contains('scrolling')) { last = 0; raf = requestAnimationFrame(frame); return; }
+    if (window.__scrollIdle && !window.__scrollIdle()) { last = 0; raf = requestAnimationFrame(frame); return; }
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now;
     size();

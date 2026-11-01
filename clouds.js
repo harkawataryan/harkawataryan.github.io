@@ -232,7 +232,9 @@ void main() {
   let az = 0.45, el = 0.6;
   const sunDir = () => [Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)];
 
-  const SCALE = 0.75;
+  // Phones get a lighter render: fewer pixels and a lower frame rate.
+  const touch = matchMedia('(hover: none)').matches;
+  const SCALE = touch ? 0.5 : 0.75;
   function size() {
     const r = shot.getBoundingClientRect();
     let w = Math.max(2, Math.round(r.width * SCALE)), h = Math.max(2, Math.round(r.height * SCALE));
@@ -242,11 +244,11 @@ void main() {
   }
 
   let visible = false, raf = 0, last = 0, t0 = performance.now(), sunMoved = true;
-  const FRAME = 1000 / 30;
+  const FRAME = touch ? 1000 / 24 : 1000 / 30;
   function frame(now) {
     raf = 0;
     if (!visible || document.hidden) return;
-    if (document.documentElement.classList.contains('scrolling')) { raf = requestAnimationFrame(frame); return; }
+    if (window.__scrollIdle && !window.__scrollIdle()) { raf = requestAnimationFrame(frame); return; }
     if (now - last >= FRAME) {
       last = now;
       size();

@@ -93,47 +93,18 @@
 
   const bar = document.querySelector('.progress');
   const heroName = document.querySelector('.hero h1');
-  // While the page is moving, the live demos skip their drawing so the
-  // scroll itself gets every frame. The flag clears shortly after the last
-  // scroll event.
-  let scrollTimer = null;
-  function markScrolling() {
-    root.classList.add('scrolling');
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => { root.classList.remove('scrolling'); settle(); }, 140);
-  }
-
-  // Gentle paging: once a scroll ends near the top of a screen, ease the rest
-  // of the way there. Any user input cancels it. Only on desktop-sized
-  // windows, where the screens are one viewport tall.
-  const screens = [...document.querySelectorAll('section.screen')];
-  let settling = null, lastInput = 0;
-  const paging = () => matchMedia('(min-width: 900px) and (min-height: 600px)').matches && !still;
-  function settle() {
-    if (!paging() || settling || performance.now() - lastInput < 120) return;
-    const y = window.scrollY, vh = innerHeight;
-    let best = null, bestD = Infinity;
-    for (const el of screens) {
-      const top = el.getBoundingClientRect().top + y;
-      const d = top - y;
-      if (Math.abs(d) < bestD) { bestD = Math.abs(d); best = top; }
-    }
-    if (best == null || bestD < 2 || bestD > vh * 0.35) return;
-    const from = y, to = Math.min(best, document.documentElement.scrollHeight - vh), t0 = performance.now(), dur = 520 + Math.min(300, bestD);
-    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-    settling = (now) => {
-      const k = Math.min(1, (now - t0) / dur);
-      window.scrollTo(0, from + (to - from) * ease(k));
-      if (k < 1 && settling) requestAnimationFrame(settling); else settling = null;
-    };
-    requestAnimationFrame(settling);
-  }
-  const cancelSettle = () => { lastInput = performance.now(); settling = null; };
-  for (const ev of ['wheel', 'touchstart', 'pointerdown', 'keydown']) window.addEventListener(ev, cancelSettle, { passive: true });
+  // The live demos ask this every frame and only draw once the page has
+  // been still for a moment. It reads the scroll position directly, so it
+  // can't be fooled by scroll events arriving late behind a slow frame.
+  let lastY = -1, lastMove = 0;
+  window.__scrollIdle = () => {
+    const y = window.scrollY, now = performance.now();
+    if (y !== lastY) { lastY = y; lastMove = now; }
+    return now - lastMove > 150;
+  };
 
   let ticking = false;
   function onScroll() {
-    markScrolling();
     ticking = false;
     const y = window.scrollY;
     const max = document.documentElement.scrollHeight - innerHeight;
