@@ -295,8 +295,8 @@ h1 .line > span { display: inline-block; }
 .sim .board { border-top: 1px solid var(--line); padding: 8px 12px 10px; }
 .sim .bhead { display: flex; justify-content: space-between; gap: 10px; font: 600 10px "Inter Tight", Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .sim .bnote { color: var(--acc); text-transform: none; letter-spacing: 0; font: 600 11px Inter, sans-serif; text-align: right; }
-.sim .board ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.sim .board li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 46px; align-items: center; gap: 10px; font-size: 12px; cursor: pointer; border-radius: 6px; padding: 2px 4px; transition: background .2s; }
+.sim .board ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.sim .board li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 46px; align-items: center; gap: 10px; font-size: 12px; cursor: pointer; border-radius: 6px; padding: 1px 4px; transition: background .2s; }
 .sim .board li:hover { background: color-mix(in srgb, var(--line) 45%, transparent); }
 .sim .board li .nm { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sim .board li .nm small { color: var(--muted); font-weight: 400; margin-left: 6px; }
@@ -316,7 +316,7 @@ h1 .line > span { display: inline-block; }
   .sim .traffic { margin-left: 0; }
 }
 @media (max-width: 680px) {
-  .project .shot.has-sim { min-height: 560px; }
+  .project .shot.has-sim { min-height: 600px; }
   .project .shot.has-sim img { height: 100%; aspect-ratio: auto; }
   .sim .bar .hint { margin-left: 0; }
 }

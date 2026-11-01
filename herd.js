@@ -8,8 +8,9 @@
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const POLICIES = [
-    { id: 'herd', name: 'Herd', note: 'cache-aware' },
-    { id: 'p2c', name: 'Power of two', note: 'two random, pick the lighter' },
+    { id: 'herd', name: 'Herd', note: 'cached prompt, unless busy' },
+    { id: 'prefix', name: 'Prefix only', note: 'cached prompt, always' },
+    { id: 'kv', name: 'Cache fullness', note: 'most free cache' },
     { id: 'll', name: 'Least-loaded', note: 'shortest queue' },
     { id: 'rr', name: 'Round-robin', note: 'take turns' },
   ];
@@ -52,17 +53,36 @@
     let seed = 777;
     const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
     const w = { policy, t: 0, cursor: 0, rr: 0, servers: Array.from({ length: N }, () => ({ q: [], busy: null, cache: [] })), flying: [], lat: [], hit: 0, done: 0 };
-    const load = (i) => w.servers[i].q.length + (w.servers[i].busy ? 1 : 0);
+    const load = (i) => w.servers[i].q.length + (w.servers[i].busy ? 1 : 0) + w.flying.filter((r) => r.s === i).length;
     const cost = (i, p) => (w.servers[i].cache.includes(p) ? 0.35 : 1) * (slow.has(i) ? 3 : 1);
+    // Cache fullness: how much work is sitting on a server right now, which is
+    // what fills its cache memory. Queued requests count at their real cost,
+    // so a cache hit is cheap and a slow server is expensive. Lower is freer.
+    const fullness = (i) => {
+      const sv = w.servers[i];
+      let f = sv.busy ? Math.max(0, sv.busy.done - w.t) : 0;
+      for (const r of sv.q) f += 0.95 * cost(i, r.p);
+      // Requests still travelling toward this server are already committed.
+      for (const r of w.flying) if (r.s === i) f += 0.95 * cost(i, r.p);
+      return f;
+    };
+    const holders = (p) => [...Array(N).keys()].filter((i) => w.servers[i].cache.includes(p));
+    const lightest = (ids, f) => { let b = ids[0]; for (const i of ids) if (f(i) < f(b)) b = i; return b; };
     w.pick = (p) => {
       if (policy === 'rr') { w.rr = (w.rr + 1) % N; return w.rr; }
-      let best = 0; for (let i = 1; i < N; i++) if (load(i) < load(best)) best = i;
-      if (policy === 'll') return best;
-      if (policy === 'p2c') { const a = Math.floor(rnd() * N); let b = Math.floor(rnd() * (N - 1)); if (b >= a) b++; return load(a) <= load(b) ? a : b; }
-      const holders = [...Array(N).keys()].filter((i) => w.servers[i].cache.includes(p) && load(i) <= load(best) + 1);
-      if (!holders.length) return best;
-      let b = holders[0]; for (const i of holders) if (load(i) < load(b)) b = i; return b;
+      const all = [...Array(N).keys()];
+      if (policy === 'll') return lightest(all, load);
+      // Cache fullness: the server that would finish soonest judging by the
+      // work queued on it, without knowing what each server has cached.
+      if (policy === 'kv') return lightest(all, (i) => fullness(i) + 0.95 * cost(i, -1));
+      // Prefix only: always a server that has the prompt cached, however busy.
+      if (policy === 'prefix') { const h = holders(p); return h.length ? lightest(h, (i) => w.servers[i].cache.indexOf(p)) : lightest(all, (i) => fullness(i) + 0.95 * cost(i, -1)); }
+      // Herd: the server where this request would finish soonest, counting
+      // the work ahead of it, the server's speed, and whether the prompt is
+      // already cached there.
+      return lightest(all, (i) => fullness(i) + 0.95 * cost(i, p));
     };
+    void rnd;
     w.step = (dt) => {
       w.t += dt;
       nextArrival(w.t);
@@ -200,6 +220,7 @@
   sim.querySelectorAll('.board li').forEach((li) => li.addEventListener('click', () => sim.querySelector(`.seg [data-p="${li.dataset.p}"]`).click()));
   const range = sim.querySelector('input[type="range"]'), rps = sim.querySelector('.rps');
   range.addEventListener('input', () => { rate = Number(range.value); rps.textContent = rate + '/s'; });
+  range.addEventListener('change', () => { reset(); board(); });
   const tip = sim.querySelector('.tip');
   function hitServer(e) {
     if (!geom) return -1;
@@ -210,6 +231,7 @@
   cv.addEventListener('click', (e) => {
     const i = hitServer(e); if (i < 0) return;
     if (slow.has(i)) slow.delete(i); else slow.add(i);
+    reset(); board();
     tip.textContent = slow.size ? `${slow.size} slow · tap a GPU to toggle` : 'All healthy · tap a GPU to slow it';
   });
   cv.addEventListener('mousemove', (e) => { cv.style.cursor = hitServer(e) >= 0 ? 'pointer' : 'default'; });
