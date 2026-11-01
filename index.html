@@ -139,7 +139,7 @@
     <h3>Concertify</h3>
     <p class="stack">Go · Python · PyTorch · Node.js · Redis</p>
 
-    <p>Ranks upcoming concerts by how much you listen to each artist on Spotify, learning from your thumbs up and down. 500+ users. Ticketmaster allows 5 requests a second, so a Redis cache that merges duplicate requests and a priority limiter brought the first load from 9s to 2.5s.</p>
+    <p>Finds the concerts near you worth going to, ranked by how much you actually listen to each artist on Spotify. Ticketmaster supplies the candidates; a Go service scores every show on artist overlap, genre fit, distance and date, with weights that PyTorch retrains for each person from their thumbs up and down, and a group mode ranks for several friends' tastes at once. 500+ people have used it. Ticketmaster allows 5 requests a second, so a Redis cache that merges duplicate requests and a limiter that fetches what's on screen first cut the first load from 9s to 2.5s. The ranking on the left is live: add your own artists.</p>
     <p class="links"><a href="https://concertify-cm6k.onrender.com">Demo</a> <a href="https://github.com/harkawataryan/Concertify">Source</a></p>
     </div>
   </div>
