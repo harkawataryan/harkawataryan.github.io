@@ -298,8 +298,12 @@ h1 .line > span { display: inline-block; }
 .js #concertify.in .demo .results li:nth-child(5) { transition-delay: .83s; }
 .js #concertify.in .demo .results li:nth-child(n+6) { transition-delay: .95s; }
 
-.js #clouds .shot { opacity: 0; filter: blur(16px) brightness(1.35); transform: scale(1.04); transition: opacity .9s ease, filter 1.5s ease, transform 1.6s cubic-bezier(.2,.75,.2,1); }
-.js #clouds.in .shot { opacity: 1; filter: none; transform: none; }
+.js #clouds .shot { opacity: 0; transition: opacity .9s ease; }
+.js #clouds.in .shot { opacity: 1; }
+/* The blur lives on the picture inside the card, so the card's edges clip it
+   and nothing spills onto the page. */
+.js #clouds .shot > img, .js #clouds .shot canvas.live { filter: blur(16px) brightness(1.35); transform: scale(1.08); transition: filter 1.5s ease, transform 1.6s cubic-bezier(.2,.75,.2,1), opacity .8s ease; }
+.js #clouds.in .shot > img, .js #clouds.in .shot canvas.live { filter: none; transform: none; }
 
 .js .project .info > * { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .7s cubic-bezier(.2,.75,.2,1); }
 .js .project.in .info > * { opacity: 1; transform: none; }
@@ -311,7 +315,7 @@ h1 .line > span { display: inline-block; }
 
 @media (prefers-reduced-motion: reduce) {
   .progress { display: none; }
-  .js h1 .line > span, .js [data-rv], .js .project .shot, .js .project .shot img, .js .project .info > *, .js #concertify .demo .results li { transform: none !important; opacity: 1 !important; clip-path: none !important; filter: none !important; transition: none !important; animation: none !important; }
+  .js h1 .line > span, .js [data-rv], .js .project .shot, .js .project .shot img, .js .project .info > *, .js #concertify .demo .results li, .js #clouds .shot canvas.live { transform: none !important; opacity: 1 !important; clip-path: none !important; filter: none !important; transition: none !important; animation: none !important; }
   .js .screen::after { transform: none; transition: none; }
 }
 
