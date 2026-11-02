@@ -307,26 +307,45 @@ button, input { font: inherit; color: inherit; }
   let data = null;
   const tabs = { content: 'pages', geo: 'countries', device: 'devices', refs: 'refs', os: 'systems' };
 
-  // ---- API, spaced to stay under GoatCounter's 4 requests/second. Each call
-  // is two requests (CORS preflight plus the GET), and a rate-limited
-  // preflight surfaces as a network error, so both get retried. ----
-  let last = 0;
+  // ---- API. GoatCounter allows 4 requests/second and each call is two
+  // requests (CORS preflight plus the GET), so a single dispatcher releases
+  // one call every 520ms. Calls are queued with a priority so that whatever
+  // the user is looking at goes before background prefetching, and a
+  // rate-limited preflight (which surfaces as a network error) is retried. ----
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  async function api(path, retry = 3) {
-    const wait = Math.max(0, last + 600 - Date.now());
-    last = Date.now() + wait;
-    if (wait) await sleep(wait);
+  const queue = [];
+  let draining = false, last = 0;
+  function api(path, prio = 1, tag = '') {
+    return new Promise((resolve, reject) => {
+      queue.push({ path, prio, tag, resolve, reject, seq: queue.length + Date.now() });
+      drain();
+    });
+  }
+  async function drain() {
+    if (draining) return;
+    draining = true;
+    while (queue.length) {
+      queue.sort((a, b) => b.prio - a.prio || a.seq - b.seq);
+      const job = queue.shift();
+      const wait = Math.max(0, last + 520 - Date.now());
+      if (wait) await sleep(wait);
+      last = Date.now();
+      fetchOne(job.path).then(job.resolve, job.reject);
+    }
+    draining = false;
+  }
+  async function fetchOne(path, retry = 3) {
     let res;
     try {
       res = await fetch(API + path, { headers: { Authorization: 'Bearer ' + token } });
     } catch (e) {
       if (!retry) throw new Error('could not reach GoatCounter');
       await sleep(1500);
-      return api(path, retry - 1);
+      return fetchOne(path, retry - 1);
     }
     if (res.status === 429 && retry) {
       await sleep(1500);
-      return api(path, retry - 1);
+      return fetchOne(path, retry - 1);
     }
     if (res.status === 401 || res.status === 403) throw Object.assign(new Error('auth'), { auth: true });
     if (!res.ok) throw new Error(path + ': HTTP ' + res.status);
@@ -353,30 +372,91 @@ button, input { font: inherit; color: inherit; }
   const weekdayLbl = (t) => fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(t);
   const floorHour = (t) => Math.floor(t / HOUR) * HOUR;
 
-  // ---- loading ----
-  async function load() {
-    const [hours, unit] = RANGES[range];
+  // ---- loading. Each range is fetched once and kept in memory and in
+  // sessionStorage for a few minutes, so switching ranges is instant; a
+  // stale range is shown from the cache first and refreshed behind it. The
+  // other ranges are prefetched at low priority after the visible one. ----
+  const LISTS = [['refs', 'toprefs'], ['countries', 'locations'], ['devices', 'sizes'], ['systems', 'systems'], ['browsers', 'browsers'], ['states', 'locations/US']];
+  const FRESH = 5 * 60e3;
+  const cache = {};
+  const session = {
+    get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+  for (const r of Object.keys(RANGES)) { const c = session.get('gc-dash-' + r); if (c && c.lists) cache[r] = c; }
+  const inflight = {};
+  let gen = 0;
+
+  function window_(r) {
+    const [hours, unit] = RANGES[r];
     const now = Date.now();
     const start = unit === 'hour' ? floorHour(now) - (hours - 1) * HOUR : zoned(dayKey(now - (hours / 24 - 1) * 24 * HOUR), 0);
-    const q = `?start=${new Date(start).toISOString().slice(0, 19)}Z&end=${new Date(now).toISOString().slice(0, 19)}Z`;
+    return { start, now, unit, q: `?start=${new Date(start).toISOString().slice(0, 19)}Z&end=${new Date(now).toISOString().slice(0, 19)}Z` };
+  }
+
+  // Fetch one range. All eight calls are queued at once; onPart is called
+  // as each lands so the visible range fills in progressively.
+  function fetchRange(r, prio, onPart) {
+    if (inflight[r]) {
+      // Already being prefetched: move its remaining calls to the front.
+      for (const j of queue) if (j.tag === r) j.prio += prio;
+      return inflight[r];
+    }
+    const w = window_(r);
+    const d = { start: w.start, now: w.now, unit: w.unit, total: null, hits: null, lists: {}, fetched: w.now, partial: true };
+    const part = (fn) => (res) => { fn(res); if (onPart) onPart(d); };
+    const jobs = [
+      api('/stats/total' + w.q, prio + 2, r).then(part((t) => { d.total = t; })),
+      api('/stats/hits' + w.q + '&limit=100', prio + 1, r).then(part((h) => { d.hits = h; })),
+    ];
+    for (const [k, p] of LISTS) jobs.push(api(`/stats/${p}${w.q}&limit=30`, prio, r).then(part((res) => { d.lists[k] = res.stats || []; })));
+    inflight[r] = Promise.all(jobs).then(() => {
+      d.partial = false;
+      cache[r] = d;
+      session.set('gc-dash-' + r, d);
+      return d;
+    }).finally(() => { delete inflight[r]; });
+    return inflight[r];
+  }
+
+  async function load(force) {
+    const my = ++gen;
+    const r = range;
+    const cached = cache[r];
+    const fresh = cached && !force && Date.now() - cached.fetched < FRESH;
+    if (cached) { data = cached; render(); }
+    if (fresh) { status(updatedLbl(cached.fetched)); prefetch(); return; }
     document.body.classList.add('loading');
-    status('Loading…');
+    status(cached ? 'Refreshing…' : 'Loading…');
     try {
-      const total = await api('/stats/total' + q);
-      const hits = await api('/stats/hits' + q + '&limit=100');
-      const lists = { refs: [], countries: [], states: [], devices: [], browsers: [], systems: [] };
-      data = { start, now, unit, total, hits, lists };
-      render();
-      for (const [k, p] of [['refs', 'toprefs'], ['countries', 'locations'], ['devices', 'sizes'], ['systems', 'systems'], ['browsers', 'browsers'], ['states', 'locations/US']]) {
-        lists[k] = (await api(`/stats/${p}${q}&limit=30`)).stats || [];
-        render();
-      }
-      status('Updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(now).toLowerCase());
+      const d = await fetchRange(r, 10, (part) => {
+        // Show partial data only when there's nothing better on screen.
+        if (my !== gen || cached || !part.total || !part.hits) return;
+        for (const [k] of LISTS) if (!part.lists[k]) part.lists[k] = [];
+        data = part; render();
+      });
+      if (my !== gen) return;
+      data = d; render();
+      status(updatedLbl(d.now));
+      prefetch();
     } catch (e) {
       if (e.auth) return signOut('That token was rejected.');
-      status('Could not load: ' + e.message);
+      if (my === gen) status('Could not load: ' + e.message);
     } finally {
-      document.body.classList.remove('loading');
+      if (my === gen) document.body.classList.remove('loading');
+    }
+  }
+  const updatedLbl = (t) => 'Updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(t).toLowerCase();
+
+  // Warm the other ranges in the background, nearest to the current one first.
+  function prefetch() {
+    const keys = Object.keys(RANGES);
+    const i = keys.indexOf(range);
+    const order = keys.map((k, j) => [Math.abs(j - i), k]).sort((a, b) => a[0] - b[0]).map((x) => x[1]).filter((k) => k !== range);
+    for (const k of order) {
+      const c = cache[k];
+      if (c && Date.now() - c.fetched < FRESH) continue;
+      fetchRange(k, 0).catch(() => {});
     }
   }
   const status = (s) => { $('#status').textContent = s; };
@@ -845,7 +925,7 @@ button, input { font: inherit; color: inherit; }
     }
   });
   $('#signout').addEventListener('click', () => signOut());
-  $('#refresh').addEventListener('click', () => { load(); loadVisits(); });
+  $('#refresh').addEventListener('click', () => { load(true); loadVisits(); });
   for (const b of $$('#ranges button')) {
     b.setAttribute('aria-pressed', String(b.dataset.r === range));
     b.addEventListener('click', () => {
