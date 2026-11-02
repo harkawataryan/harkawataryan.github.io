@@ -270,8 +270,8 @@ h1 .line > span { display: inline-block; }
 .project .shot canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; touch-action: pan-y; }
 .project .shot canvas.live.on { opacity: 1; }
 .project .shot.has-live img, .project:hover .shot.has-live img { filter: none; }
-.project .shot.has-live { cursor: grab; }
-.project .shot.dragging { cursor: grabbing; }
+.project .shot.has-live { cursor: crosshair; }
+.project .shot.dragging { cursor: crosshair; }
 .project .shot .hint { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 7px; font: 500 12px Inter, sans-serif; letter-spacing: .01em; color: #fff; background: rgba(0,0,0,.5); backdrop-filter: blur(6px); padding: 5px 11px 5px 9px; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
 .project .shot.has-live .hint { opacity: 1; }
 .project .shot .hint i { width: 7px; height: 7px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 0 0 rgba(255,59,48,.7); animation: live-pulse 1.6s ease-out infinite; }

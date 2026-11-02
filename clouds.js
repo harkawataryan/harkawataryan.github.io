@@ -293,24 +293,29 @@ void main() {
   document.addEventListener('visibilitychange', kick);
   gl.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.classList.remove('on'); });
 
-  // Drag to move the sun. A real drag must not follow the card's link.
-  let down = null, dragged = false;
-  shot.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, az, el }; dragged = false; });
-  shot.addEventListener('pointermove', (e) => {
-    if (!down) return;
-    const dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!dragged && Math.hypot(dx, dy) < 5) return;
-    if (!dragged) { dragged = true; shot.setPointerCapture(e.pointerId); shot.classList.add('dragging'); }
+  // Click or drag to put the sun where the pointer is. The pointer position
+  // is turned into a view ray with the same camera the shader uses, and the
+  // sun direction is set to that ray.
+  const PITCH = 0.58, FOV = 1.15;
+  function aimSun(e) {
     const r = shot.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width) * 2 - 1, ny = 1 - ((e.clientY - r.top) / r.height) * 2;
+    const t = Math.tan(FOV / 2), aspect = r.width / r.height;
+    let dx = nx * aspect * t, dy = ny * t, dz = -1;
+    const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+    const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+    const ry = dy * cp - dz * sp, rz = dy * sp + dz * cp;
+    // Keep the sun above the horizon so the lighting never breaks.
+    el = Math.max(0.03, Math.asin(Math.max(-1, Math.min(1, ry))));
+    az = Math.atan2(dx, -rz);
     sunMoved = true;
-    az = down.az + (dx / r.width) * Math.PI * 1.2;
-    el = Math.max(0.03, Math.min(1.35, down.el - (dy / r.height) * 1.6));
-    e.preventDefault();
-  });
-  const up = () => { down = null; shot.classList.remove('dragging'); };
+  }
+  let down = false;
+  shot.addEventListener('pointerdown', (e) => { if (e.button !== 0 && e.pointerType === 'mouse') return; down = true; shot.setPointerCapture(e.pointerId); shot.classList.add('dragging'); aimSun(e); });
+  shot.addEventListener('pointermove', (e) => { if (down) aimSun(e); });
+  const up = () => { down = false; shot.classList.remove('dragging'); };
   shot.addEventListener('pointerup', up);
   shot.addEventListener('pointercancel', up);
-  shot.addEventListener('click', (e) => { if (dragged) { e.preventDefault(); dragged = false; } });
   shot.addEventListener('dragstart', (e) => e.preventDefault());
 
   shot.appendChild(canvas);
@@ -336,7 +341,7 @@ void main() {
   shot.appendChild(panel);
   const hint = document.createElement('span');
   hint.className = 'hint';
-  hint.innerHTML = '<i></i>Live · drag to move the sun';
+  hint.innerHTML = '<i></i>Live · click or drag to place the sun';
   shot.appendChild(hint);
   shot.classList.add('has-live');
 })();
