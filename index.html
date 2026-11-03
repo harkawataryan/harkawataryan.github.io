@@ -83,8 +83,8 @@
       <span class="when">Summer 2026 · back in Spring 2027</span>
     </div>
     <div class="body">
-      <p>Built saturation routing for the service mesh. When a backend has no free workers, it now rejects excess requests right away instead of queueing them, and the mesh retries them on a backend with spare capacity. That turned slow queue waits into fast reroutes and cut p99 latency 23% at 400M+ requests a day.</p>
-      <p>Made routing zone-aware, so when a whole zone runs hot a growing share of its traffic spills to neighboring zones and comes back as it recovers. That cut errors during zone-wide load spikes 60%. Both rolled out across 50 services with no incidents.</p>
+      <p>Built saturation routing for the service mesh. Backends with no free workers now reject excess requests instead of queueing them, and the mesh retries them on a backend with spare capacity, cutting p99 latency 23%.</p>
+      <p>Also made routing zone-aware, so a zone running hot spills traffic to its neighbors until it recovers. That cut errors during zone-wide load spikes 60%. Both shipped to 50 services handling 400M+ requests a day with no incidents.</p>
     </div>
   </article>
 
