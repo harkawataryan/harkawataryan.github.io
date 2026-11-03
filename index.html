@@ -35,7 +35,7 @@
     <a href="#herd">Projects</a>
     <a href="#about">About</a>
     <a href="https://github.com/harkawataryan">GitHub</a>
-    <a href="assets/Aryan_Harkawat_Resume.pdf?v=5">Resume</a>
+    <a href="assets/Aryan_Harkawat_Resume.pdf?v=6">Resume</a>
     <button class="theme" type="button" aria-label="Switch to dark mode">
       <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><g><line x1="12" y1="1.8" x2="12" y2="4.2"/><line x1="12" y1="19.8" x2="12" y2="22.2"/><line x1="1.8" y1="12" x2="4.2" y2="12"/><line x1="19.8" y1="12" x2="22.2" y2="12"/><line x1="4.8" y1="4.8" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.2" y2="19.2"/><line x1="4.8" y1="19.2" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.2" y2="4.8"/></g></svg>
       <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/></svg>
@@ -65,7 +65,7 @@
       <a href="https://github.com/harkawataryan">GitHub</a>
       <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a>
       <a href="mailto:harkawat.aryan@gmail.com">Email</a>
-      <a href="assets/Aryan_Harkawat_Resume.pdf?v=5">Resume</a>
+      <a href="assets/Aryan_Harkawat_Resume.pdf?v=6">Resume</a>
     </p>
   </div>
 </div>
@@ -83,8 +83,8 @@
       <span class="when">Summer 2026 · back in Spring 2027</span>
     </div>
     <div class="body">
-      <p>Rebuilt the service mesh load balancer around power-of-two-choices on CPU and queue depth, so traffic stops piling onto overloaded backends. Overload errors fell 40% across 50 services at 400M+ requests a day, about $200K a year in spare capacity.</p>
-      <p>Added saturation routing, where a full backend rejects excess requests early and the mesh reroutes them, cutting p99 latency 23%.</p>
+      <p>Built saturation routing for the service mesh. When a backend has no free workers, it now rejects excess requests right away instead of queueing them, and the mesh retries them on a backend with spare capacity. That turned slow queue waits into fast reroutes and cut p99 latency 23% at 400M+ requests a day.</p>
+      <p>Made routing zone-aware, so when a whole zone runs hot a growing share of its traffic spills to neighboring zones and comes back as it recovers. Both rolled out across 50 services with no incidents.</p>
     </div>
   </article>
 
@@ -163,14 +163,14 @@
   <div class="wrap">
     <h2 data-rv><i>03</i>About</h2>
     <div class="prose">
-    <p data-rv>Junior at UT Austin studying computer science. Most of what I've worked on is backend infrastructure, load balancing and routing in particular, first at Stripe and then on my own with Herd. I write mostly Python, Java, C++ and Go.</p>
+    <p data-rv>Junior at UT Austin studying computer science. Most of what I've worked on is backend infrastructure, especially routing traffic and keeping systems fast under load, first at Stripe and then on my own with Herd. I write mostly Python, Java, C++ and Go.</p>
     <p data-rv>Before CS took over I did astronomy research and co-authored a peer-reviewed paper on how galaxy shapes vary with mass and environment, using Sloan Digital Sky Survey data.</p>
     <p data-rv>Outside of work I'm usually watching anime, playing cool indie games with friends, or deep in a sci-fi or fantasy book. I also bake, and if I went full time my chocolate chip cookies would put Crumbl out of business.</p>
     <p data-rv>Email is the best way to reach me: <a href="mailto:harkawat.aryan@gmail.com">harkawat.aryan@gmail.com</a>.</p>
     </div>
     <footer data-rv>
       <span>Aryan Harkawat · Austin, TX</span>
-      <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf?v=5">Resume</a></span>
+      <span><a href="https://github.com/harkawataryan">GitHub</a> · <a href="https://www.linkedin.com/in/aryanh/">LinkedIn</a> · <a href="assets/Aryan_Harkawat_Resume.pdf?v=6">Resume</a></span>
     </footer>
   </div>
 </section>
