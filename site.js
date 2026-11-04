@@ -118,33 +118,44 @@
 
   // One screen per wheel gesture. Native snapping can skip a screen when a
   // trackpad flick arrives with momentum, so on desktop the wheel is taken
-  // over: the first tick of a gesture moves to the next screen and the rest
-  // of the gesture is ignored until that move has landed. Keyboard, scrollbar
-  // and touch still use the browser's own snapping.
+  // over. A gesture is a run of wheel events with no gap longer than 80ms
+  // between them, which separates a flick's momentum tail from a deliberate
+  // second swipe. Each gesture moves one screen from wherever the last move
+  // was headed, so quick successive swipes chain without waiting. Keyboard,
+  // scrollbar and touch still use the browser's own snapping.
   const screens = [...document.querySelectorAll('section.screen')];
   const snapping = () => matchMedia('(min-width: 900px) and (min-height: 600px)').matches && !still;
-  let wheelLock = false, lockTimer = 0, lastLanded = 0;
-  function unlockWheel() { wheelLock = false; lastLanded = performance.now(); }
+  let lastWheel = 0, lastDy = 0, decaying = true, heading = -1, headingAt = 0;
   window.addEventListener('wheel', (e) => {
     if (!snapping() || e.ctrlKey) return;
     const inner = e.target.closest && e.target.closest('.results');
     if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
     e.preventDefault();
-    if (wheelLock || performance.now() - lastLanded < 200) return;
+    const now = performance.now();
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-    if (Math.abs(dy) < 4) return;
+    // A momentum tail only ever slows down, so a gap, or a speed-up after
+    // the tail has started, means a new swipe. A swipe's own rising edge
+    // fires once because nothing has decayed yet.
+    const a = Math.abs(dy), la = Math.abs(lastDy);
+    // A stalled frame can open a gap inside a tail, so a gap only counts
+    // when the delta is not still shrinking.
+    const since = now - lastWheel;
+    const gap = since > 400 || (since > 120 && a >= la);
+    if (a < la) decaying = true;
+    const fresh = gap || (decaying && a > la * 1.3 && a > 12);
+    lastWheel = now; lastDy = dy;
+    if (!fresh || a < 4) return;
+    decaying = false;
     const y = window.scrollY;
     let cur = 0, bestD = Infinity;
-    screens.forEach((el, i) => { const d = Math.abs(el.getBoundingClientRect().top + y - y); if (d < bestD) { bestD = d; cur = i; } });
+    screens.forEach((el, i) => { const d = Math.abs(el.getBoundingClientRect().top); if (d < bestD) { bestD = d; cur = i; } });
+    // If a move is still in flight, count from where it is going.
+    if (heading >= 0 && now - headingAt < 900) cur = heading;
     const next = Math.max(0, Math.min(screens.length - 1, cur + (dy > 0 ? 1 : -1)));
     if (next === cur) return;
-    wheelLock = true;
-    const top = screens[next].getBoundingClientRect().top + y;
-    window.scrollTo({ top: top, behavior: 'smooth' });
-    clearTimeout(lockTimer);
-    lockTimer = setTimeout(unlockWheel, 900);
+    heading = next; headingAt = now;
+    window.scrollTo({ top: screens[next].getBoundingClientRect().top + y, behavior: 'smooth' });
   }, { passive: false });
-  window.addEventListener('scrollend', () => { if (wheelLock) { clearTimeout(lockTimer); setTimeout(unlockWheel, 60); } });
 
   // Scroll-linked fade on desktop, where the page snaps screen to screen. A
   // screen is fully opaque when it fills the viewport and gone once it has
