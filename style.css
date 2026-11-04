@@ -107,6 +107,17 @@ img { max-width: 100%; height: auto; display: block; }
 :root { --top-h: 72px; }
 .screen { position: relative; min-height: 100vh; min-height: 100svh; display: grid; align-content: center; padding: calc(var(--top-h) + 24px) 0 48px; border-bottom: 1px solid var(--rule); }
 .screen > .wrap { width: 100%; }
+/* Desktop windows snap to each screen, so a wheel tick or a swipe lands on
+   the next one. The browser animates the snap itself, which keeps it quick.
+   Phones and short windows scroll freely because the screens are taller
+   than the viewport there. */
+@media (min-width: 900px) and (min-height: 600px) {
+  html { scroll-snap-type: y mandatory; }
+  .screen { scroll-snap-align: start; scroll-snap-stop: always; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 
 /* hero */
 .hero .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: end; }

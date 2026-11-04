@@ -113,6 +113,25 @@
       heroName.style.transform = 'translate3d(0,' + (y * 0.22).toFixed(1) + 'px,0)';
       heroName.style.opacity = Math.max(0, 1 - y / 650).toFixed(3);
     }
+    fadeScreens();
+  }
+
+  // Scroll-linked fade on desktop, where the page snaps screen to screen. A
+  // screen is fully opaque when it fills the viewport and gone once it has
+  // moved half a viewport away, so the move between screens reads as one
+  // fading out while the next fades in, instead of content sliding past.
+  const fading = [...document.querySelectorAll('section.screen > .wrap')];
+  const snapping = () => matchMedia('(min-width: 900px) and (min-height: 600px)').matches && !still;
+  let fadeOn = false;
+  function fadeScreens() {
+    const on = snapping();
+    if (!on) { if (fadeOn) fading.forEach((w) => { w.style.opacity = ''; }); fadeOn = false; return; }
+    fadeOn = true;
+    const vh = innerHeight;
+    for (const w of fading) {
+      const d = Math.abs(w.parentElement.getBoundingClientRect().top) / vh;
+      w.style.opacity = Math.max(0, Math.min(1, 1 - (d - 0.08) / 0.5)).toFixed(3);
+    }
   }
   window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
   window.addEventListener('resize', () => requestAnimationFrame(onScroll));
