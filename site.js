@@ -116,12 +116,41 @@
     fadeScreens();
   }
 
+  // One screen per wheel gesture. Native snapping can skip a screen when a
+  // trackpad flick arrives with momentum, so on desktop the wheel is taken
+  // over: the first tick of a gesture moves to the next screen and the rest
+  // of the gesture is ignored until that move has landed. Keyboard, scrollbar
+  // and touch still use the browser's own snapping.
+  const screens = [...document.querySelectorAll('section.screen')];
+  const snapping = () => matchMedia('(min-width: 900px) and (min-height: 600px)').matches && !still;
+  let wheelLock = false, lockTimer = 0, lastLanded = 0;
+  function unlockWheel() { wheelLock = false; lastLanded = performance.now(); }
+  window.addEventListener('wheel', (e) => {
+    if (!snapping() || e.ctrlKey) return;
+    const inner = e.target.closest && e.target.closest('.results');
+    if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
+    e.preventDefault();
+    if (wheelLock || performance.now() - lastLanded < 200) return;
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    if (Math.abs(dy) < 4) return;
+    const y = window.scrollY;
+    let cur = 0, bestD = Infinity;
+    screens.forEach((el, i) => { const d = Math.abs(el.getBoundingClientRect().top + y - y); if (d < bestD) { bestD = d; cur = i; } });
+    const next = Math.max(0, Math.min(screens.length - 1, cur + (dy > 0 ? 1 : -1)));
+    if (next === cur) return;
+    wheelLock = true;
+    const top = screens[next].getBoundingClientRect().top + y;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+    clearTimeout(lockTimer);
+    lockTimer = setTimeout(unlockWheel, 900);
+  }, { passive: false });
+  window.addEventListener('scrollend', () => { if (wheelLock) { clearTimeout(lockTimer); setTimeout(unlockWheel, 60); } });
+
   // Scroll-linked fade on desktop, where the page snaps screen to screen. A
   // screen is fully opaque when it fills the viewport and gone once it has
   // moved half a viewport away, so the move between screens reads as one
   // fading out while the next fades in, instead of content sliding past.
   const fading = [...document.querySelectorAll('section.screen > .wrap')];
-  const snapping = () => matchMedia('(min-width: 900px) and (min-height: 600px)').matches && !still;
   let fadeOn = false;
   function fadeScreens() {
     const on = snapping();
