@@ -186,7 +186,7 @@ button, input { font: inherit; color: inherit; }
 
   <section class="card">
     <div class="tiles">
-      <div class="tile"><div class="k">Visitors</div><div class="v num" id="tVisitors">–</div><div class="sub" id="tVisitorsSub">&nbsp;</div></div>
+      <div class="tile"><div class="k">Visits</div><div class="v num" id="tVisitors">–</div><div class="sub" id="tVisitorsSub">&nbsp;</div></div>
       <div class="tile"><div class="k">Clicks</div><div class="v num" id="tClicks">–</div><div class="sub">links, email, resume</div></div>
       <div class="tile"><div class="k">Bounce rate</div><div class="v num" id="tBounce">–</div><div class="sub">left in under 3s</div></div>
       <div class="tile"><div class="k">Engaged</div><div class="v num" id="tEngaged">–</div><div class="sub">stayed 8s or longer</div></div>
@@ -477,8 +477,19 @@ button, input { font: inherit; color: inherit; }
   }
   const sum = (m) => [...m.values()].reduce((a, b) => a + b, 0);
 
+  // Visits per hour, counted from page paths only. The /stats/total series
+  // also counts every event name once per session, which would count one
+  // visitor two or three times.
+  function pageHourly() {
+    const out = new Map();
+    for (const h of data.hits.hits || []) {
+      if (h.event) continue;
+      for (const [t, c] of hourly(h.stats)) out.set(t, (out.get(t) || 0) + c);
+    }
+    return out;
+  }
   function series() {
-    const m = hourly(data.total.stats);
+    const m = pageHourly();
     if (data.unit === 'hour') {
       const pts = [];
       for (let t = floorHour(data.start); t <= floorHour(data.now); t += HOUR) pts.push({ t, end: t + HOUR, v: m.get(t) || 0 });
@@ -524,7 +535,7 @@ button, input { font: inherit; color: inherit; }
   function render() {
     const c = content();
     const s = series();
-    // Counted from the hourly buckets: the API's own totals cover whole days.
+    // One per session per page (GoatCounter's visit), events left out.
     $('#tVisitors').textContent = s.reduce((a, d) => a + d.v, 0).toLocaleString();
     $('#tVisitorsSub').textContent = c.events + ' events';
     $('#tClicks').textContent = c.clicks.reduce((a, b) => a + b.count, 0);
