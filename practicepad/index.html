@@ -1427,6 +1427,9 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     return el;
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function withTimeout(promise, ms, what) {
+    return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " timed out")), ms))]);
+  }
   function putFile(path, text) { window.cheerpjAddStringFile(path, new TextEncoder().encode(text)); }
   async function javac(sources, outDir) {
     const con = jconsole(); con.textContent = "";
@@ -1444,10 +1447,10 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
         statusEl.textContent = "Starting the Java runtime (first run downloads about 20 MB)…"; statusEl.className = "status";
         jconsole();
         await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js");
-        await window.cheerpjInit({ status: "none" });
+        await withTimeout(window.cheerpjInit({ status: "none" }), 90000, "JVM start");
         statusEl.textContent = "Warming up javac (first run only)…";
         putFile("/str/PadRunner.java", txt("runner-java"));
-        const r = await javac(["/str/PadRunner.java"], "/files/");
+        const r = await withTimeout(javac(["/str/PadRunner.java"], "/files/"), 150000, "javac warm-up");
         if (r.code !== 0) throw new Error("runner failed to compile:\n" + r.log);
         javaState = "ready"; return true;
       } catch (e) { console.error(e); javaState = "failed"; javaRuntimeReady = null; return false; }
@@ -1456,7 +1459,7 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
   }
   async function runJava(src) {
     const ok = await ensureJava();
-    if (!ok) { javaState = "none"; finish(["__PAD_ERROR__", "The in-browser Java runtime couldn't start (network, or a browser without WebAssembly). Check your connection and press Run again.\n"]); return; }
+    if (!ok) { javaState = "none"; finish(["__PAD_ERROR__", "The in-browser Java runtime couldn't start. It needs a normal browser tab in Chrome, Firefox, Edge or Safari (embedded browser panes can't run it) and a connection that can reach cjrtnc.leaningtech.com. Reload the page and press Run again.\n"]); return; }
     statusEl.textContent = "Compiling…"; statusEl.className = "status";
     const dir = "/files/run" + Date.now() + "/";
     await window.cheerpjRunMain("PadRunner", CP, "--mkdir", dir);
