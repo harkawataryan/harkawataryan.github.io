@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Jane Street Practice Pad</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/*__LEGACY_CSS__*/
+select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px;max-width:15rem}
+.source{font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:68ch}
+.part .tag.ext{color:var(--info);border-color:var(--info)}
+.part .tag.talk{color:var(--warn);border-color:var(--warn)}
+.panel .api{margin:4px 0 10px}
+.out .note{color:var(--warn)}
+.trow.skip{color:var(--faint)}
+.trow.skip .ic{color:var(--faint)}
+.status.busy{color:var(--info)}
+.problist{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.problist button{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);color:var(--muted)}
+.problist button[aria-current="true"]{color:var(--accent-ink);background:var(--accent);border-color:transparent}
+.problist button:hover{color:var(--fg)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>PracticePad <small>Jane Street SWE Intern · Round 1</small></div>
+    <select class="picker" id="problem" aria-label="Problem"></select>
+    <select class="lang" id="lang" aria-label="Language">
+      <option value="python">Python 3</option>
+      <option value="javascript">JavaScript</option>
+      <option value="java">Java 21</option>
+    </select>
+    <div class="spacer"></div>
+    <div class="timer" id="timer" title="Phone screens run 45–60 min. One problem.">
+      <span class="t" id="tdisp">45:00</span>
+      <button class="btn sm ghost" id="tstart">Start</button>
+      <button class="btn sm ghost" id="treset" title="Reset timer">↺</button>
+    </div>
+    <button class="btn sm ghost" id="resetcode" title="Restore the starter code for this problem and language">Reset code</button>
+    <button class="btn primary" id="run" title="Ctrl/Cmd + Enter">▶ Run</button>
+  </header>
+
+  <div class="main">
+    <aside class="rail">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="q">Question</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="i">Interviewer</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="r">Rubric <span class="pill" id="rscore">0/10</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="s">Solution</button>
+      </div>
+
+      <section class="panel" id="tab-q" role="tabpanel"></section>
+
+      <section class="panel hid" id="tab-i" role="tabpanel">
+        <h2>Interviewer</h2>
+        <div class="meta">The questions worth asking, the nudges you'll hear, and what each nudge is telling you. Open them one at a time, as a real interviewer would give them to you.</div>
+        <h3>Clarifying questions, and the answers you'd get</h3>
+        <div id="clarify"></div>
+        <h3>The nudge ladder</h3>
+        <p class="meta">If you hear one of these, your current code has a specific problem. Open a nudge only when you'd have earned it.</p>
+        <div id="nudges"></div>
+        <h3>How round 1 actually runs</h3>
+        <ul>
+          <li>45–60 minutes on Zoom with a shared pad. Usually one problem that grows in parts, not several problems.</li>
+          <li>Interns get class-building and implementation problems with an emphasis on clean code, not algorithm trivia. Jane Street says their questions are open-ended, with several reasonable approaches.</li>
+          <li>Interviewers may stay quiet. Silence is not a verdict. Keep narrating.</li>
+          <li>Hints are part of the format. Taking a nudge and running with it is a good signal, not a lost point.</li>
+          <li>They don't need you to finish. They want to watch you work.</li>
+        </ul>
+        <h3>Signal decoder</h3>
+        <table class="decoder">
+          <tr><td>"This function is going to be called a lot."</td><td>Cache it. Move the work to the rarer operations. Then say the new costs out loud.</td></tr>
+          <tr><td>"What if these overlap?"</td><td>A set loses information. Count how many things reference each item.</td></tr>
+          <tr><td>"Do you need to recompute all of that?"</td><td>Update incrementally from the change instead of rebuilding.</td></tr>
+          <tr><td>"How big can this get?"</td><td>Your current approach won't scale. Say its cost in the problem's own sizes, then find what's actually small.</td></tr>
+          <tr><td>"What's the complexity of that?"</td><td>Answer in the problem's real sizes, not a bare n.</td></tr>
+          <tr><td>"Is there a simpler way?"</td><td>You're over-engineering. Step back and say the simplest thing that works.</td></tr>
+          <tr><td>"Does that handle…?"</td><td>There's a bug. Trace their example through your code, line by line, out loud.</td></tr>
+          <tr><td>"How confident are you in that?"</td><td>They want calibration: "Fairly sure about X, not sure about Y, let me check Y with an example."</td></tr>
+          <tr><td>"Would you play this game?"</td><td>Expected value first, then variance and what's at stake. Ask what you're risking.</td></tr>
+        </table>
+      </section>
+
+      <section class="panel hid" id="tab-r" role="tabpanel">
+        <h2>What gets graded</h2>
+        <div class="meta">Paraphrased from Jane Street's own prep page and interviewing blog post. The one thing they repeat: the main question is whether they'd want to work with you, and the interview is a simulation of working with you.</div>
+        <ul>
+          <li><b>Be nice.</b> Pleasant and collaborative. They say plainly that brilliance doesn't get you hired if you aren't pleasant to work with.</li>
+          <li><b>Be clear.</b> Simple and to the point. Use examples. Don't use a term you can't define on the spot.</li>
+          <li><b>Know your language.</b> Write real, idiomatic code without looking things up: loops, classes, maps, exceptions, sensible organization.</li>
+          <li><b>Know what you don't know.</b> Say "I'm not sure" rather than guess. State how confident you are in each assumption.</li>
+          <li><b>Write the code you said you'd write.</b> Agree on a plan, then carry it out. Changing plans mid-way without discussing it is a named failure mode.</li>
+          <li><b>Name tradeoffs and pick a side, with a reason.</b></li>
+          <li><b>Ask thoughtful questions about unclear parts.</b></li>
+          <li><b>Engage with hints.</b> Update on what the interviewer tells you.</li>
+        </ul>
+        <div class="callout"><b>The failure mode this pad is built around.</b> The code in these problems is short for everyone who passes. Getting from a slow version to a fast one is expected, not the differentiator. The differentiator is whether the interviewer could follow your reasoning the whole time without asking. Every time you change the design, say three things: what was wrong, what the new invariant is, and what it costs now.</div>
+        <h3>The 45-minute shape</h3>
+        <div class="timeline">
+          <span class="tm">0:00–4:00</span><span>Restate the problem in your own words. Work a tiny example by hand. Ask 3–4 clarifying questions, including sizes and how often each operation runs.</span>
+          <span class="tm">4:00–8:00</span><span>Plan out loud: what you'll store, what each function does, rough cost. Get a nod before typing.</span>
+          <span class="tm">8:00–22:00</span><span>Part 1. Small named functions. Narrate as you go. Then trace one example through the code by hand.</span>
+          <span class="tm">22:00–34:00</span><span>Part 2. Explain the change before making it: what breaks, the new idea, the new cost.</span>
+          <span class="tm">34:00–42:00</span><span>Part 3. Same pattern. Reuse Part 1–2 pieces rather than rewriting.</span>
+          <span class="tm">42:00–45:00</span><span>Part 4 discussion, then your questions for them.</span>
+        </div>
+        <h3>Self-check for this problem</h3>
+        <div class="score" id="scoreline">0 of 10</div>
+        <div id="checks"></div>
+        <h3>Sentences that do the work</h3>
+        <div class="say"><span class="lbl">When you change the design</span>
+          <p>"The problem with what I have is that it redoes the whole computation on every call, so it's O(size of everything) even when nothing changed."</p>
+          <p>"So the invariant I'll keep is …. The rare operations maintain it; the hot one just reads it."</p>
+          <p>"That moves the cost to the rare operations. Given the call frequencies you gave me, that's the right trade."</p>
+        </div>
+        <div class="say"><span class="lbl">When you're unsure</span>
+          <p>"I'm fairly confident about the main loop. I'm less sure about this edge case; let me check it against a small example before I commit."</p>
+        </div>
+        <div class="say"><span class="lbl">When you take a hint</span>
+          <p>"Right, that case breaks my current approach because … I'll change just this piece; everything else stays the same."</p>
+        </div>
+      </section>
+
+      <section class="panel hid" id="tab-s" role="tabpanel">
+        <h2>Solution and talk track</h2>
+        <div class="meta">Locked on purpose. Give yourself 30 minutes on the pad first. Reading this early turns a practice run into a reading exercise.</div>
+        <div class="lock" id="sollock">
+          <p>Solution hidden.</p>
+          <button class="btn" id="solbtn">Reveal solution</button>
+          <p class="meta" style="margin-top:8px">Second click confirms.</p>
+        </div>
+        <div class="sol hid" id="solbody"></div>
+      </section>
+    </aside>
+
+    <section class="work">
+      <div class="editor" id="editor">
+        <div class="gutter" id="gutter">1</div>
+        <div class="codewrap">
+          <pre id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
+          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code editor"></textarea>
+        </div>
+      </div>
+      <div class="console">
+        <div class="bar">
+          <button class="ctab-btn" id="cb-tests" aria-selected="true">Tests</button>
+          <button class="ctab-btn" id="cb-out" aria-selected="false">Output</button>
+          <span class="status" id="status">Press Run to run the tests for the parts you've unlocked.</span>
+        </div>
+        <div class="tests" id="tests"></div>
+        <div class="out hid" id="out"><span class="dim">Nothing yet.</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="application/json" id="pad-data">/*__PAD_DATA__*/</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const DATA = JSON.parse(document.getElementById("pad-data").textContent);
+  const PROBLEMS = DATA.problems;
+  const BY_ID = Object.fromEntries(PROBLEMS.map((p) => [p.id, p]));
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const HL_LANG = { python: "python", javascript: "javascript", java: "java" };
+  const RS = "\x1e";
+  const PYODIDE_URL = new URL(new URLSearchParams(location.search).get("pyodide") || "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/", location.href).href;
+  const PER_TEST_TIMEOUT = 15000, LOAD_TIMEOUT = 120000;
+
+  const CHECKS = [
+    "Restated the problem in my own words and worked a tiny example before coding",
+    "Asked about sizes and how often each operation runs",
+    "Named what I'd store and why, before typing anything",
+    "Gave each operation's cost in the problem's own sizes, not a bare n",
+    "Explained each design change with a concrete case where the old version fails",
+    "Traced one example through the finished code out loud",
+    "Named at least one tradeoff I didn't take, and why",
+    "Said \"I'm not sure\" at least once instead of bluffing, then checked with an example",
+    "Code has small named helpers, not one blob",
+    "Wrote the plan I said I'd write; any change was announced first"
+  ];
+
+  // ---------- state ----------
+  let P = null;
+  let lang = LS.get("pad2.lang", LS.get("pad.lang", "python"));
+  if (!["python", "javascript", "java"].includes(lang)) lang = "python";
+  let maxPart = 1;
+  let lastResults = null;
+  const key = (k) => "pad2." + P.id + "." + k;
+
+  // one-time migration of the original single-problem pad
+  (function migrate() {
+    if (LS.get("pad2.migrated", false)) return;
+    for (const l of ["python", "javascript", "java"]) {
+      const old = LS.get("pad.code." + l, null);
+      if (old !== null && LS.get("pad2.watchlist.code." + l, null) === null) LS.set("pad2.watchlist.code." + l, old);
+    }
+    const mp = LS.get("pad.maxPart", null); if (mp !== null) LS.set("pad2.watchlist.maxPart", mp);
+    const ck = LS.get("pad.checks", null); if (ck !== null) LS.set("pad2.watchlist.checks", ck);
+    LS.set("pad2.migrated", true);
+  })();
+
+  // ---------- problem picker ----------
+  const picker = $("#problem");
+  PROBLEMS.forEach((p, i) => { const o = document.createElement("option"); o.value = p.id; o.textContent = (i + 1) + " · " + p.title; picker.append(o); });
+  picker.addEventListener("change", () => selectProblem(picker.value));
+  window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (BY_ID[id] && (!P || P.id !== id)) selectProblem(id); });
+
+  // ---------- rendering ----------
+  const escHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  function fmtBody(body, part) {
+    let out = body.replace(/\{fn:(\w+)\}/g, (m, k) => P.fnames[k] ? "<code>" + escHtml(P.fnames[k][lang]) + "</code>" : m);
+    out = out.replace("{api}", part && part.api ? '<div class="api">' + part.api[lang] + "</div>" : "");
+    return out;
+  }
+  function renderQuestion() {
+    const q = $("#tab-q");
+    const nCode = P.parts.filter((p) => !p.discussion).length;
+    let html = '<div class="problist" role="list">' + PROBLEMS.map((p) => `<button role="listitem" data-pick="${p.id}" aria-current="${p.id === P.id}">${escHtml(p.title)}</button>`).join("") + "</div>";
+    html += `<h2>${escHtml(P.title)}</h2><div class="meta">${escHtml(P.tagline)}. ${nCode} coding parts and a discussion part; each part unlocks when you're done with the last. Budget: 45 minutes.</div>`;
+    html += `<div class="source">${escHtml(P.source)}</div>`;
+    html += P.intro;
+    P.parts.forEach((part, idx) => {
+      const n = idx + 1, unlocked = n === 1 || maxPart >= n;
+      const tags = (part.discussion ? '<span class="tag talk">no code</span>' : '<span class="tag">code</span>') + (part.tag === "extension" ? '<span class="tag ext">extension</span>' : "");
+      html += `<div class="part${unlocked ? "" : " locked"}" id="part${n}"><div class="ph"><h4>Part ${n} · ${escHtml(part.title)}</h4>${tags}</div>`;
+      if (unlocked) html += `<div class="body">${fmtBody(part.body, part)}</div>`;
+      else html += `<div class="lockmsg">Finish Part ${n - 1} first. <button class="btn sm" data-unlock="${n}">Interviewer: show me Part ${n}</button></div>`;
+      html += "</div>";
+    });
+    q.innerHTML = html;
+    q.querySelectorAll("[data-unlock]").forEach((b) => b.addEventListener("click", () => {
+      maxPart = Math.max(maxPart, +b.dataset.unlock); LS.set(key("maxPart"), maxPart); renderQuestion(); renderTests(lastResults);
+    }));
+    q.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => selectProblem(b.dataset.pick)));
+  }
+  function revealList(container, items, render) {
+    container.innerHTML = "";
+    items.forEach((it, i) => {
+      const d = document.createElement("div"); d.className = "reveal";
+      const b = document.createElement("button");
+      b.innerHTML = `<span class="n">${String(i + 1).padStart(2, "0")}</span><span>${render.head(it)}</span><span class="chev">›</span>`;
+      const body = document.createElement("div"); body.className = "body hid"; body.innerHTML = render.body(it);
+      b.addEventListener("click", () => { d.classList.toggle("open"); body.classList.toggle("hid"); });
+      d.append(b, body); container.append(d);
+    });
+  }
+  function renderInterviewer() {
+    revealList($("#clarify"), P.clarify, { head: (c) => `"${c[0]}"`, body: (c) => `<div class="ans"><b>Interviewer:</b> ${c[1]}</div>` });
+    revealList($("#nudges"), P.nudges, { head: (n) => `If: ${n[0]}`, body: (n) => `<div class="ans"><b>Interviewer:</b> "${n[1]}"</div><div class="decode"><b>What it means:</b> ${n[2]}</div>` });
+  }
+  function renderChecks() {
+    const checksEl = $("#checks"), state = LS.get(key("checks"), []);
+    checksEl.innerHTML = "";
+    CHECKS.forEach((c, i) => {
+      const l = document.createElement("label"); l.className = "check" + (state[i] ? " done" : "");
+      const inp = document.createElement("input"); inp.type = "checkbox"; inp.id = "chk" + i; inp.checked = !!state[i];
+      inp.addEventListener("change", () => { state[i] = inp.checked; LS.set(key("checks"), state); renderChecks(); });
+      const s = document.createElement("span"); s.textContent = c;
+      l.append(inp, s); checksEl.append(l);
+    });
+    const n = state.filter(Boolean).length;
+    $("#scoreline").textContent = `${n} of ${CHECKS.length}`; $("#rscore").textContent = `${n}/${CHECKS.length}`;
+  }
+  let solArmed = false;
+  function renderSolutionLock() {
+    solArmed = false; $("#solbtn").textContent = "Reveal solution";
+    $("#sollock").classList.remove("hid"); $("#solbody").classList.add("hid"); $("#solbody").innerHTML = "";
+  }
+  $("#solbtn").addEventListener("click", () => {
+    if (!solArmed) { solArmed = true; $("#solbtn").textContent = "Yes, show it"; return; }
+    $("#sollock").classList.add("hid"); const sb = $("#solbody"); sb.classList.remove("hid"); sb.innerHTML = P.solution;
+    sb.querySelectorAll("pre code.lang-python").forEach((el) => { try { el.innerHTML = hljs.highlight(el.textContent, { language: "python" }).value; } catch (e) {} });
+  });
+
+  // ---------- tabs ----------
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
+    ["q", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
+  }));
+
+  // ---------- editor ----------
+  const ta = $("#code"), hlc = $("#hlcode"), hlpre = $("#hl"), gutter = $("#gutter"), langSel = $("#lang");
+  langSel.value = lang;
+  function loadCode() { ta.value = LS.get(key("code." + lang), P.starters[lang]); render(); ta.scrollTop = 0; syncScroll(); }
+  function render() {
+    const v = ta.value;
+    let html;
+    try { html = hljs.highlight(v, { language: HL_LANG[lang] }).value; } catch (e) { html = escHtml(v); }
+    hlc.innerHTML = html + "\n";
+    const lines = v.split("\n").length;
+    let g = ""; for (let i = 1; i <= lines; i++) g += i + "\n";
+    gutter.textContent = g;
+    syncScroll();
+  }
+  function syncScroll() { hlpre.scrollTop = ta.scrollTop; hlpre.scrollLeft = ta.scrollLeft; gutter.scrollTop = ta.scrollTop; }
+  ta.addEventListener("input", () => { render(); LS.set(key("code." + lang), ta.value); });
+  ta.addEventListener("scroll", syncScroll);
+  ta.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
+    const s = ta.selectionStart, en = ta.selectionEnd, v = ta.value;
+    const unit = lang === "javascript" ? "  " : "    ";
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      if (s !== en && v.slice(s, en).includes("\n")) {
+        const le = v.indexOf("\n", en - 1) === -1 ? v.length : v.indexOf("\n", en - 1);
+        const block = v.slice(ls, le);
+        const re = new RegExp("^ {1," + unit.length + "}");
+        const out = block.split("\n").map((l) => e.shiftKey ? l.replace(re, "") : unit + l).join("\n");
+        ta.setRangeText(out, ls, le, "select");
+      } else if (e.shiftKey) {
+        const line = v.slice(ls, s); const m = line.match(new RegExp("^ {1," + unit.length + "}"));
+        if (m) { ta.setRangeText("", ls, ls + m[0].length, "end"); ta.selectionStart = ta.selectionEnd = Math.max(ls, s - m[0].length); }
+      } else {
+        ta.setRangeText(unit, s, en, "end");
+      }
+      ta.dispatchEvent(new Event("input"));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      const line = v.slice(ls, s);
+      let indent = (line.match(/^ */) || [""])[0];
+      if (/[:{\[(]$/.test(line.trimEnd())) indent += unit;
+      ta.setRangeText("\n" + indent, s, en, "end");
+      ta.dispatchEvent(new Event("input"));
+    } else if (e.key === "Backspace" && s === en) {
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      const before = v.slice(ls, s);
+      if (before.length && /^ +$/.test(before) && before.length % unit.length === 0) { e.preventDefault(); ta.setRangeText("", s - unit.length, s, "end"); ta.dispatchEvent(new Event("input")); }
+    }
+  });
+  langSel.addEventListener("change", () => {
+    lang = langSel.value; LS.set("pad2.lang", lang); loadCode(); renderQuestion(); lastResults = null; renderTests(null);
+    statusEl.textContent = lang === "java" ? "Java 21 runs in the browser. The first Run downloads the JDK, so give it 20–40 seconds."
+      : lang === "python" ? "Python runs in your browser. The first Run downloads it (a few seconds)." : "Press Run to run the tests for the parts you've unlocked.";
+    statusEl.className = "status";
+  });
+  let resetArmed = false, resetTimer = null;
+  $("#resetcode").addEventListener("click", () => {
+    if (!resetArmed) { resetArmed = true; $("#resetcode").textContent = "Really reset?"; resetTimer = setTimeout(() => { resetArmed = false; $("#resetcode").textContent = "Reset code"; }, 3000); return; }
+    clearTimeout(resetTimer); resetArmed = false; $("#resetcode").textContent = "Reset code";
+    ta.value = P.starters[lang]; LS.set(key("code." + lang), ta.value); render();
+  });
+
+  // ---------- timer ----------
+  const TOTAL = 45 * 60; let left = TOTAL, ticking = null;
+  function fmt(s) { const m = Math.floor(Math.abs(s) / 60), ss = Math.abs(s) % 60; return (s < 0 ? "-" : "") + String(m).padStart(2, "0") + ":" + String(ss).padStart(2, "0"); }
+  function paintTimer() { $("#tdisp").textContent = fmt(left); $("#timer").classList.toggle("low", left <= 300 && left > 0); $("#timer").classList.toggle("over", left <= 0); }
+  $("#tstart").addEventListener("click", () => {
+    if (ticking) { clearInterval(ticking); ticking = null; $("#tstart").textContent = "Resume"; return; }
+    ticking = setInterval(() => { left -= 1; paintTimer(); }, 1000); $("#tstart").textContent = "Pause";
+  });
+  $("#treset").addEventListener("click", () => { clearInterval(ticking); ticking = null; left = TOTAL; paintTimer(); $("#tstart").textContent = "Start"; });
+
+  // ---------- console ----------
+  const outEl = $("#out"), testsEl = $("#tests"), statusEl = $("#status");
+  $("#cb-tests").addEventListener("click", () => showConsole("tests"));
+  $("#cb-out").addEventListener("click", () => showConsole("out"));
+  function showConsole(which) {
+    $("#cb-tests").setAttribute("aria-selected", which === "tests"); $("#cb-out").setAttribute("aria-selected", which === "out");
+    testsEl.classList.toggle("hid", which !== "tests"); outEl.classList.toggle("hid", which !== "out");
+  }
+  function renderTests(results) {
+    testsEl.innerHTML = "";
+    [1, 2, 3].forEach((p) => {
+      const names = P.testNames[String(p)] || [];
+      if (!names.length) return;
+      const g = document.createElement("div"); g.className = "tgroup";
+      const unlocked = maxPart >= p;
+      g.innerHTML = `<div class="gh">Part ${p}${unlocked ? "" : " · locked"}</div>`;
+      names.forEach((n) => {
+        const r = results && results[p + "|" + n];
+        const row = document.createElement("div");
+        const cls = !unlocked ? "locked" : !r ? "wait" : r.skip ? "skip" : r.ok ? "pass" : "fail";
+        row.className = "trow " + cls;
+        const icon = !unlocked ? "·" : !r ? "○" : r.skip ? "–" : r.ok ? "✓" : "✗";
+        row.innerHTML = `<span class="ic">${icon}</span><span><span class="tname"></span>${r && (r.msg) ? '<div class="msg"></div>' : ""}</span>`;
+        row.querySelector(".tname").textContent = n;
+        if (r && r.msg) row.querySelector(".msg").textContent = r.msg;
+        g.append(row);
+      });
+      testsEl.append(g);
+    });
+  }
+  function setOut(lines, cls) {
+    outEl.innerHTML = "";
+    if (!lines.length) { outEl.innerHTML = '<span class="dim">(no output)</span>'; return; }
+    const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = lines.join("\n"); outEl.append(s);
+  }
+  function parseResults(lines) {
+    const results = {}, other = []; let errored = false, current = null;
+    for (const raw of lines) {
+      const line = raw.replace(/\r$/, "");
+      let m;
+      if ((m = /^START\|(\d)\|(.*)$/.exec(line))) { current = m[1] + "|" + m[2]; continue; }
+      if ((m = /^(PASS|FAIL)\|(\d)\|([^|]*)(?:\|([\s\S]*))?$/.exec(line))) {
+        results[m[2] + "|" + m[3]] = { ok: m[1] === "PASS", msg: (m[4] || "").split(RS).join("\n").trim() };
+        current = null; continue;
+      }
+      if (line.startsWith("__PAD_ERROR__")) { errored = true; continue; }
+      other.push(line.split(RS).join("\n"));
+    }
+    return { results, other, errored, current };
+  }
+  function finish(lines, opts) {
+    opts = opts || {};
+    const { results, other, errored, current } = parseResults(lines);
+    if (opts.timedOut && current) {
+      results[current] = { ok: false, msg: `Timed out after ${PER_TEST_TIMEOUT / 1000} s. Infinite loop, or an approach that's too slow for this input size?` };
+    }
+    const names = [1, 2, 3].filter((p) => p <= maxPart).flatMap((p) => (P.testNames[String(p)] || []).map((n) => p + "|" + n));
+    if (opts.timedOut) names.forEach((k) => { if (!results[k]) results[k] = { ok: false, skip: true, msg: "not run (an earlier test timed out)" }; });
+    lastResults = Object.keys(results).length ? results : null;
+    renderTests(lastResults);
+    setOut(other, errored || opts.compileError ? "err" : "");
+    const passed = names.filter((k) => results[k] && results[k].ok).length;
+    if (opts.compileError) { statusEl.textContent = "Compile error. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else if (errored) { statusEl.textContent = "Your code raised before the tests ran. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else if (!lastResults) { statusEl.textContent = opts.message || "No test results came back. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else {
+      statusEl.textContent = `${passed}/${names.length} passed (parts 1–${Math.min(maxPart, 3)})` + (opts.timedOut ? " · timed out" : "");
+      statusEl.className = "status " + (passed === names.length ? "ok" : "bad"); showConsole("tests");
+    }
+  }
+
+  // ---------- JS and Python run in a worker, so a runaway test can be stopped ----------
+  const WORKER_SRC = `
+let py = null;
+const RUNNER = ${JSON.stringify(`
+import sys, traceback
+__ns = {"__name__": "__main__"}
+try:
+    exec(compile(__pad_src, "solution.py", "exec"), __ns)
+except SyntaxError as __e:
+    print("__PAD_ERROR__")
+    print("".join(traceback.format_exception_only(type(__e), __e)))
+except BaseException as __e:
+    print("__PAD_ERROR__")
+    __tb = [f for f in traceback.extract_tb(__e.__traceback__) if f.filename == "solution.py"]
+    print("".join(traceback.format_list(__tb)) + "".join(traceback.format_exception_only(type(__e), __e)))
+else:
+    __h = {}
+    exec(__pad_harness, __h)
+    __h["__run_tests__"](__ns, __pad_max_part)
+`)};
+function fmt(v) { if (typeof v === "string") return v; try { const s = JSON.stringify(v); return s === undefined ? String(v) : s; } catch (e) { return String(v); } }
+self.onmessage = async (ev) => {
+  const m = ev.data;
+  const out = (s) => self.postMessage({ type: "line", line: String(s) });
+  if (m.lang === "javascript") {
+    self.postMessage({ type: "ready" });
+    const con = { log: (...a) => out(a.map(fmt).join(" ")), error: (...a) => out(a.map(fmt).join(" ")), warn: (...a) => out(a.map(fmt).join(" ")), info: (...a) => out(a.map(fmt).join(" ")) };
+    let fn;
+    try { new Function(m.src); } catch (e) { out("__PAD_ERROR__"); out(String(e)); self.postMessage({ type: "done" }); return; }
+    try { fn = new Function("console", m.src + "\\n" + m.harness); } catch (e) { out("__PAD_ERROR__"); out(String(e)); self.postMessage({ type: "done" }); return; }
+    try { fn(con); } catch (e) {
+      out("__PAD_ERROR__");
+      const mm = e && e.stack && /<anonymous>:(\\d+):(\\d+)/.exec(e.stack);
+      out(String(e) + (mm && Number(mm[1]) - 2 >= 1 ? " (line " + (Number(mm[1]) - 2) + ")" : ""));
+    }
+    self.postMessage({ type: "done" });
+    return;
+  }
+  try {
+    if (!py) {
+      self.postMessage({ type: "status", text: "Loading Python (first run downloads it, a few seconds)…" });
+      importScripts(m.pyodideUrl + "pyodide.js");
+      py = await loadPyodide({ indexURL: m.pyodideUrl });
+    }
+    self.postMessage({ type: "ready" });
+    py.setStdout({ batched: out }); py.setStderr({ batched: out });
+    py.globals.set("__pad_src", m.src); py.globals.set("__pad_harness", m.harness); py.globals.set("__pad_max_part", m.maxPart);
+    py.runPython(RUNNER);
+  } catch (e) { out("__PAD_ERROR__"); out(String(e && e.message || e)); }
+  self.postMessage({ type: "done" });
+};`;
+  let worker = null;
+  function getWorker() {
+    if (!worker) worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" })));
+    return worker;
+  }
+  function runInWorker(payload) {
+    return new Promise((resolve) => {
+      const w = getWorker(), lines = [];
+      let timer = null, ready = false;
+      const arm = (ms) => { clearTimeout(timer); timer = setTimeout(onTimeout, ms); };
+      const onTimeout = () => {
+        w.terminate(); if (worker === w) worker = null;
+        resolve({ lines, timedOut: ready, loadFailed: !ready });
+      };
+      w.onmessage = (ev) => {
+        const m = ev.data;
+        if (m.type === "status") { statusEl.textContent = m.text; statusEl.className = "status busy"; }
+        else if (m.type === "ready") { ready = true; statusEl.textContent = "Running tests…"; statusEl.className = "status busy"; arm(PER_TEST_TIMEOUT); }
+        else if (m.type === "line") { lines.push(m.line); if (/^(START|PASS|FAIL)\|/.test(m.line)) arm(PER_TEST_TIMEOUT); }
+        else if (m.type === "done") { clearTimeout(timer); resolve({ lines, timedOut: false }); }
+      };
+      w.onerror = (e) => { clearTimeout(timer); e.preventDefault(); w.terminate(); if (worker === w) worker = null; resolve({ lines: lines.concat(["__PAD_ERROR__", "Runner crashed: " + (e.message || "unknown error")]), timedOut: false }); };
+      arm(payload.lang === "python" ? LOAD_TIMEOUT : PER_TEST_TIMEOUT);
+      w.postMessage(payload);
+    });
+  }
+  async function runJS(src) {
+    const harness = P.harness.javascript.replace("__MAX_PART__", String(Math.min(maxPart, 3))).replace("__USER_LINES__", String(src.split("\n").length));
+    const r = await runInWorker({ lang: "javascript", src, harness });
+    finish(r.lines, { timedOut: r.timedOut });
+  }
+  async function runPython(src) {
+    const r = await runInWorker({ lang: "python", src, harness: P.harness.python, maxPart: Math.min(maxPart, 3), pyodideUrl: PYODIDE_URL });
+    if (r.loadFailed) { finish(["__PAD_ERROR__", "Python couldn't load. Check your connection to cdn.jsdelivr.net and press Run again."]); return; }
+    finish(r.lines, { timedOut: r.timedOut });
+  }
+
+  // ---------- Java (CheerpJ 5: a Java 21 JDK in WebAssembly, using its own javac) ----------
+  const PAD_RUNNER = `import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+
+// Loads each run's freshly compiled classes in a new class loader, so a rerun never sees stale code.
+public class PadRunner {
+    public static void main(String[] args) throws Exception {
+        if (args[0].equals("--mkdir")) { new File(args[1]).mkdirs(); return; }
+        URLClassLoader loader = new URLClassLoader(new URL[]{ new File(args[0]).toURI().toURL() }, PadRunner.class.getClassLoader());
+        try {
+            Method main = loader.loadClass(args[1]).getMethod("main", String[].class);
+            main.invoke(null, (Object) new String[]{ args[2] });
+        } catch (InvocationTargetException e) {
+            System.out.println("__PAD_ERROR__");
+            e.getCause().printStackTrace(System.out);
+        } catch (Throwable e) {
+            System.out.println("__PAD_ERROR__");
+            e.printStackTrace(System.out);
+        }
+        System.out.println("__PAD_DONE__");
+        System.out.flush();
+    }
+}
+`;
+  let javaState = "none", javaRuntimeReady = null;
+  const CP = "/files/";
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function withTimeout(promise, ms, what) { return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " timed out")), ms))]); }
+  function loadScript(url) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = url; s.onload = res; s.onerror = () => rej(new Error("failed to load " + url)); document.head.append(s); }); }
+  function jconsole() {
+    let el = document.getElementById("console");
+    if (!el) { el = document.createElement("pre"); el.id = "console"; el.hidden = true; document.body.append(el); }
+    return el;
+  }
+  function putFile(path, text) { window.cheerpjAddStringFile(path, new TextEncoder().encode(text)); }
+  async function javac(sources, outDir) {
+    const con = jconsole(); con.textContent = "";
+    const code = await window.cheerpjRunMain("com.sun.tools.javac.Main", CP, ...sources, "-d", outDir, "-encoding", "UTF-8", "-nowarn", "-proc:none");
+    await sleep(60);
+    return { code, log: con.textContent };
+  }
+  async function ensureJava() {
+    if (javaState === "ready") return true;
+    if (javaRuntimeReady) return javaRuntimeReady;
+    javaState = "loading";
+    javaRuntimeReady = (async () => {
+      try {
+        statusEl.textContent = "Starting Java 21 (first run downloads the JDK)…"; statusEl.className = "status busy";
+        jconsole();
+        await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js");
+        await withTimeout(window.cheerpjInit({ version: 21, status: "none" }), 90000, "JVM start");
+        statusEl.textContent = "Warming up javac (first run only)…";
+        putFile("/str/PadRunner.java", PAD_RUNNER);
+        const r = await withTimeout(javac(["/str/PadRunner.java"], "/files/"), 150000, "javac warm-up");
+        if (r.code !== 0) throw new Error("runner failed to compile:\n" + r.log);
+        javaState = "ready"; return true;
+      } catch (e) { console.error(e); javaState = "none"; javaRuntimeReady = null; return false; }
+    })();
+    return javaRuntimeReady;
+  }
+  async function runJava(src) {
+    const ok = await ensureJava();
+    if (!ok) { finish(["__PAD_ERROR__", "The in-browser Java runtime couldn't start. It needs a normal browser tab in Chrome, Firefox, Edge or Safari (embedded browser panes can't run it) and a connection that can reach cjrtnc.leaningtech.com. Reload the page and press Run again."]); return; }
+    statusEl.textContent = "Compiling…"; statusEl.className = "status busy";
+    const dir = "/files/run" + Date.now() + "/";
+    await window.cheerpjRunMain("PadRunner", CP, "--mkdir", dir);
+    putFile("/str/" + P.javaClass + ".java", src);
+    putFile("/str/" + P.javaTestClass + ".java", P.harness.java);
+    const c = await javac(["/str/" + P.javaClass + ".java", "/str/" + P.javaTestClass + ".java"], dir);
+    if (c.code !== 0) {
+      const log = c.log.replace(/\/str\//g, "") || "javac exited with code " + c.code;
+      finish(log.split("\n"), { compileError: true }); return;
+    }
+    statusEl.textContent = "Running tests…";
+    const con = jconsole(); con.textContent = "";
+    await window.cheerpjRunMain("PadRunner", CP, dir, P.javaTestClass, String(Math.min(maxPart, 3)));
+    for (let i = 0; i < 50 && !con.textContent.includes("__PAD_DONE__"); i++) await sleep(60);
+    const lines = con.textContent.split("\n").filter((l) => l !== "__PAD_DONE__");
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    finish(lines);
+  }
+
+  let running = false;
+  async function runCode() {
+    if (running) return; running = true; $("#run").disabled = true;
+    const src = ta.value;
+    try {
+      if (lang === "javascript") await runJS(src);
+      else if (lang === "python") await runPython(src);
+      else await runJava(src);
+    } finally { running = false; $("#run").disabled = false; }
+  }
+  $("#run").addEventListener("click", runCode);
+
+  // ---------- switching problems ----------
+  function selectProblem(id) {
+    if (!BY_ID[id]) id = PROBLEMS[0].id;
+    P = BY_ID[id];
+    picker.value = id;
+    LS.set("pad2.problem", id);
+    if (location.hash.slice(1) !== id) history.replaceState(null, "", "#" + id);
+    document.title = P.title + " · Practice Pad";
+    maxPart = LS.get(key("maxPart"), 1);
+    lastResults = null;
+    renderQuestion(); renderInterviewer(); renderChecks(); renderSolutionLock(); loadCode(); renderTests(null);
+    setOut([], ""); outEl.innerHTML = '<span class="dim">Nothing yet.</span>';
+    statusEl.textContent = "Press Run to run the tests for the parts you've unlocked."; statusEl.className = "status";
+    $("#tab-q").scrollTop = 0;
+  }
+  selectProblem(BY_ID[location.hash.slice(1)] ? location.hash.slice(1) : LS.get("pad2.problem", PROBLEMS[0].id));
+})();
+</script>
+</body>
+</html>
