@@ -1,0 +1,1326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Watchlist Practice Pad</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<style>
+/* Layout: one-screen pad, CoderPad-style — question rail on the left, editor + console stacked on the right. Dark-first. */
+:root{
+  --bg:#0f1318; --panel:#161b22; --panel-2:#1b212b; --line:#273040; --line-strong:#334055;
+  --fg:#e3e8ef; --muted:#8e9ab0; --faint:#5f6b80;
+  --accent:#4cc38a; --accent-ink:#0b1a12; --accent-soft:rgba(76,195,138,.14);
+  --warn:#e9b44c; --bad:#ff7a7a; --bad-soft:rgba(255,122,122,.12); --good:#4cc38a; --good-soft:rgba(76,195,138,.14);
+  --info:#7cb7ff; --info-soft:rgba(124,183,255,.12);
+  --sel:rgba(124,183,255,.25);
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --hl-kw:#c792ea; --hl-str:#9ccc65; --hl-num:#f78c6c; --hl-cm:#6c7a91; --hl-fn:#82aaff; --hl-cls:#ffcb6b; --hl-bi:#89ddff;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f5f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dfe4ec; --line-strong:#c9d1dd;
+    --fg:#1a2130; --muted:#5b6678; --faint:#8a94a6;
+    --accent:#1d9a63; --accent-ink:#ffffff; --accent-soft:rgba(29,154,99,.12);
+    --warn:#b07a12; --bad:#c43c3c; --bad-soft:rgba(196,60,60,.1); --good:#1d9a63; --good-soft:rgba(29,154,99,.12);
+    --info:#2466c4; --info-soft:rgba(36,102,196,.1);
+    --sel:rgba(36,102,196,.2);
+    --hl-kw:#8a3fc1; --hl-str:#2f7d2f; --hl-num:#b4541c; --hl-cm:#7a8494; --hl-fn:#1f5fbf; --hl-cls:#a06a00; --hl-bi:#0b7a8a;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3f5f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dfe4ec; --line-strong:#c9d1dd;
+  --fg:#1a2130; --muted:#5b6678; --faint:#8a94a6;
+  --accent:#1d9a63; --accent-ink:#ffffff; --accent-soft:rgba(29,154,99,.12);
+  --warn:#b07a12; --bad:#c43c3c; --bad-soft:rgba(196,60,60,.1); --good:#1d9a63; --good-soft:rgba(29,154,99,.12);
+  --info:#2466c4; --info-soft:rgba(36,102,196,.1);
+  --sel:rgba(36,102,196,.2);
+  --hl-kw:#8a3fc1; --hl-str:#2f7d2f; --hl-num:#b4541c; --hl-cm:#7a8494; --hl-fn:#1f5fbf; --hl-cls:#a06a00; --hl-bi:#0b7a8a;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:14px;line-height:1.5;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--info);outline-offset:1px}
+code,pre,kbd{font-family:var(--mono)}
+code{font-size:.92em;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 .3em}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+kbd{font-size:.8em;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:0 .35em;color:var(--muted)}
+a{color:var(--info)}
+
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;}
+.topbar{display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.01em}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.brand small{font-weight:400;color:var(--muted)}
+.spacer{flex:1}
+.timer{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px;color:var(--muted)}
+.timer .t{color:var(--fg);min-width:5ch;text-align:right}
+.timer.low .t{color:var(--warn)}
+.timer.over .t{color:var(--bad)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);font-weight:500;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--fg);background:var(--panel-2)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+select.lang{font:inherit;color:var(--fg);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px}
+
+.main{display:grid;grid-template-columns:minmax(300px,42%) 1fr;min-height:0}
+.rail{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--panel)}
+.tabs{display:flex;gap:2px;padding:6px 10px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{padding:8px 12px;border-radius:6px 6px 0 0;color:var(--muted);font-weight:500;border:1px solid transparent;border-bottom:0;position:relative;top:1px}
+.tab[aria-selected="true"]{color:var(--fg);background:var(--bg);border-color:var(--line)}
+.tab .pill{display:inline-block;min-width:1.4em;padding:0 .4em;margin-left:.4em;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:600;text-align:center}
+.panel{overflow:auto;padding:18px 20px 32px;min-height:0;background:var(--bg)}
+.panel h2{font-size:18px;margin:0 0 4px;text-wrap:balance}
+.panel h3{font-size:14px;margin:24px 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.panel p{margin:0 0 10px;max-width:68ch}
+.panel ul,.panel ol{margin:0 0 10px;padding-left:20px;max-width:68ch}
+.panel li{margin:3px 0}
+.meta{color:var(--muted);font-size:13px;margin-bottom:14px}
+.quote{border-left:3px solid var(--line-strong);padding:6px 12px;margin:10px 0 14px;color:var(--fg);background:var(--panel);border-radius:0 6px 6px 0;max-width:68ch}
+.quote .who{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.treebox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:8px 0 12px;overflow-x:auto;font-size:13px;line-height:1.45}
+.part{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0;background:var(--panel)}
+.part.locked{border-style:dashed;background:transparent}
+.part .ph{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.part .ph h4{margin:0;font-size:15px}
+.part .tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line-strong);border-radius:4px;padding:1px 6px}
+.part.locked .lockmsg{color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.api{white-space:pre;font-family:var(--mono);font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;margin:8px 0}
+.api .c{color:var(--hl-cm)}
+.reveal{border:1px solid var(--line);border-radius:6px;margin:6px 0;background:var(--panel)}
+.reveal > button{width:100%;text-align:left;padding:9px 12px;display:flex;gap:10px;align-items:flex-start}
+.reveal > button .n{color:var(--muted);font-family:var(--mono);font-size:12px;padding-top:3px}
+.reveal > button .chev{margin-left:auto;color:var(--faint);transition:transform .15s}
+.reveal.open > button .chev{transform:rotate(90deg)}
+.reveal .body{padding:0 12px 10px 34px;color:var(--fg)}
+.reveal .body .ans{margin-top:6px;padding:8px 10px;border-left:3px solid var(--info);background:var(--info-soft);border-radius:0 6px 6px 0}
+.reveal .body .ans b{color:var(--info)}
+.reveal .body .decode{margin-top:6px;padding:8px 10px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 6px 6px 0}
+.reveal .body .decode b{color:var(--accent)}
+.hid{display:none}
+.decoder{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 14px}
+.decoder td{padding:7px 8px;border-top:1px solid var(--line);vertical-align:top}
+.decoder td:first-child{color:var(--fg);font-style:italic;width:44%}
+.decoder td:last-child{color:var(--muted)}
+.check{display:flex;gap:10px;align-items:flex-start;padding:7px 8px;border-radius:6px;cursor:pointer}
+.check:hover{background:var(--panel)}
+.check input{margin-top:4px;accent-color:var(--accent)}
+.check.done span{color:var(--muted);text-decoration:line-through}
+.score{font-family:var(--mono);font-size:13px;color:var(--muted);margin:4px 0 10px}
+.timeline{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:8px 0 14px}
+.timeline .tm{font-family:var(--mono);color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.callout{border:1px solid var(--warn);background:rgba(233,180,76,.08);border-radius:8px;padding:12px 14px;margin:14px 0;max-width:68ch}
+.callout b{color:var(--warn)}
+.lock{border:1px dashed var(--line-strong);border-radius:8px;padding:28px 18px;text-align:center;color:var(--muted);max-width:68ch}
+.sol pre{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:8px 0 14px}
+.ctab{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 14px;font-variant-numeric:tabular-nums}
+.ctab th,.ctab td{text-align:left;padding:6px 8px;border-top:1px solid var(--line)}
+.ctab th{color:var(--muted);font-weight:500;border-top:0}
+.ctab code{white-space:nowrap}
+.say{margin:8px 0 12px;padding:10px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line);max-width:68ch}
+.say .lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:600;margin-bottom:4px}
+.say p{margin:0 0 6px}
+
+.work{display:grid;grid-template-rows:1fr auto;min-height:0;min-width:0}
+.editor{position:relative;display:grid;grid-template-columns:auto 1fr;min-height:0;background:var(--panel);font-family:var(--mono);font-size:13.5px;line-height:1.55;tab-size:4}
+.gutter{padding:12px 10px 12px 14px;text-align:right;color:var(--faint);user-select:none;overflow:hidden;border-right:1px solid var(--line);white-space:pre;font-variant-numeric:tabular-nums}
+.codewrap{position:relative;min-width:0;overflow:hidden}
+.codewrap pre,.codewrap textarea{margin:0;padding:12px 16px 12px 14px;font:inherit;line-height:inherit;tab-size:4;white-space:pre;word-wrap:normal;overflow-wrap:normal}
+.codewrap pre{position:absolute;inset:0;overflow:hidden;pointer-events:none;color:var(--fg)}
+.codewrap textarea{position:absolute;inset:0;width:100%;height:100%;resize:none;border:0;outline:0;background:transparent;color:transparent;caret-color:var(--fg);overflow:auto}
+.codewrap textarea::selection{background:var(--sel)}
+.hljs-keyword,.hljs-literal{color:var(--hl-kw)}
+.hljs-string,.hljs-regexp{color:var(--hl-str)}
+.hljs-number{color:var(--hl-num)}
+.hljs-comment,.hljs-doctag{color:var(--hl-cm);font-style:italic}
+.hljs-title.function_,.hljs-title{color:var(--hl-fn)}
+.hljs-title.class_,.hljs-type{color:var(--hl-cls)}
+.hljs-built_in,.hljs-meta{color:var(--hl-bi)}
+.hljs-params{color:var(--fg)}
+.hljs-attr,.hljs-property{color:var(--fg)}
+.hljs-variable.language_{color:var(--hl-kw)}
+
+.console{border-top:1px solid var(--line);background:var(--panel);display:grid;grid-template-rows:auto minmax(120px,26vh);min-height:0}
+.console .bar{display:flex;align-items:center;gap:6px;padding:4px 10px;border-bottom:1px solid var(--line)}
+.console .bar .ctab-btn{padding:5px 10px;border-radius:5px;color:var(--muted);font-weight:500;font-size:13px}
+.console .bar .ctab-btn[aria-selected="true"]{color:var(--fg);background:var(--panel-2)}
+.console .bar .status{margin-left:auto;font-size:12.5px;color:var(--muted);font-family:var(--mono)}
+.console .bar .status.ok{color:var(--good)}
+.console .bar .status.bad{color:var(--bad)}
+.out{overflow:auto;padding:10px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:var(--fg);min-height:0}
+.out .dim{color:var(--muted)}
+.out .err{color:var(--bad)}
+.tests{overflow:auto;padding:8px 10px;min-height:0;font-size:13px}
+.tgroup{margin:4px 0 10px}
+.tgroup .gh{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:4px 6px}
+.trow{display:grid;grid-template-columns:18px 1fr;gap:8px;padding:5px 6px;border-radius:5px;align-items:start}
+.trow .ic{font-family:var(--mono);font-weight:600;text-align:center}
+.trow.pass .ic{color:var(--good)} .trow.fail .ic{color:var(--bad)} .trow.wait .ic{color:var(--faint)} .trow.locked{color:var(--faint)}
+.trow .msg{font-family:var(--mono);font-size:12px;color:var(--bad);white-space:pre-wrap;margin-top:3px}
+.trow.fail{background:var(--bad-soft)}
+.trow.pass{background:transparent}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:8px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:min(92vw,520px);z-index:9}
+.toast .btn{margin-left:8px}
+.gap{height:8px}
+
+@media (max-width: 860px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  .main{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .rail{border-right:0;border-bottom:1px solid var(--line);max-height:70vh}
+  .panel{max-height:62vh}
+  .editor{height:52vh}
+  .console{grid-template-rows:auto 30vh}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>PracticePad <small>Jane Street SWE Intern · Round 1</small></div>
+    <select class="lang" id="lang" aria-label="Language">
+      <option value="python">Python 3</option>
+      <option value="javascript">JavaScript</option>
+      <option value="java">Java (editor only)</option>
+    </select>
+    <div class="spacer"></div>
+    <div class="timer" id="timer" title="Phone screens run 45–60 min. One problem.">
+      <span class="t" id="tdisp">45:00</span>
+      <button class="btn sm ghost" id="tstart">Start</button>
+      <button class="btn sm ghost" id="treset" title="Reset timer">↺</button>
+    </div>
+    <button class="btn sm ghost" id="resetcode" title="Restore the starter code for this language">Reset code</button>
+    <button class="btn primary" id="run" title="Ctrl/Cmd + Enter">▶ Run</button>
+  </header>
+
+  <div class="main">
+    <aside class="rail">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="q">Question</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="i">Interviewer</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="r">Rubric <span class="pill" id="rscore">0/10</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="s">Solution</button>
+      </div>
+
+      <!-- ============ QUESTION ============ -->
+      <section class="panel" id="tab-q" role="tabpanel">
+        <h2>Watchlist</h2>
+        <div class="meta">One problem, three coding parts plus a discussion part. The interviewer reveals each part only when you're done with the last one. Budget: 45 minutes.</div>
+
+        <div class="quote"><span class="who">Interviewer</span>
+          We've got an internal tool that shows a developer a list of files they care about. The file system is a tree. A user creates a <em>watch</em>, like "show me everything under <code>/src</code> that ends in <code>.py</code>". The screen shows the union of all active watches as one sorted list of paths.
+          I've pasted a <code>FileTree</code> class into the pad with the tree helpers already written. Read it, use it, you don't need to touch it. We'll build the <code>Watchlist</code> class on top.
+        </div>
+
+        <h3>The sample tree the tests use</h3>
+<pre class="treebox">/
+├── src/
+│   ├── main.py
+│   ├── util.py
+│   ├── README.md
+│   └── net/
+│       ├── sock.py
+│       └── sock_test.py
+└── docs/
+    ├── guide.md
+    └── img/
+        └── logo.png</pre>
+
+        <div class="part" id="part1">
+          <div class="ph"><h4>Part 1 · Make it work</h4><span class="tag">code</span></div>
+          <p>Implement <code>Watchlist</code>:</p>
+          <div class="api" id="api1"></div>
+          <p>A file is displayed when at least one active watch covers it. A watch covers a file when the file is anywhere in the subtree under the watch's root <em>and</em> its name ends with the watch's extension (no extension means every file).</p>
+          <p>Example on the tree above: <code>add_watch("/src", ".py")</code> then <code>display()</code> gives<br>
+          <code>["/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"]</code>.</p>
+          <p class="meta" style="margin:8px 0 0">Before you type: say what you're going to do and what you'll store.</p>
+        </div>
+
+        <div class="part locked" id="part2">
+          <div class="ph"><h4>Part 2 · Make it fast</h4><span class="tag">code</span></div>
+          <div class="lockmsg" id="lock2">Finish Part 1 first. <button class="btn sm" data-unlock="2">Interviewer: show me Part 2</button></div>
+          <div class="body hid">
+            <div class="quote"><span class="who">Interviewer</span>
+              So, the UI calls <code>display()</code> on every repaint. Think hundreds of times a second. Watches get added or removed maybe a few times a minute. Right now, what does a call to <code>display()</code> cost? Can we make it cheap?
+              <br><br>Also, watches can overlap: someone watches <code>/src</code> and someone else watches <code>/src/net</code>. If I remove the second one, nothing that the first one covers should disappear.
+            </div>
+            <p>Change your design so <code>display()</code> does no tree walking. The tests check that <code>display()</code> never calls <code>iter_files</code>, that overlapping watches survive each other's removal, and that callers can't corrupt what you hand back.</p>
+            <p class="meta" style="margin:8px 0 0">Say out loud: what was wrong with the old design, what the new invariant is, and what each operation costs now.</p>
+          </div>
+        </div>
+
+        <div class="part locked" id="part3">
+          <div class="ph"><h4>Part 3 · The tree changes under you</h4><span class="tag">code</span></div>
+          <div class="lockmsg" id="lock3">Finish Part 2 first. <button class="btn sm" data-unlock="3">Interviewer: show me Part 3</button></div>
+          <div class="body hid">
+            <div class="quote"><span class="who">Interviewer</span>
+              Files get created and deleted while watches are live. The tree will call you back. Keep the display correct without rebuilding it from scratch.
+            </div>
+            <div class="api" id="api3"></div>
+            <p><code>on_file_added</code> is called right <em>after</em> the node exists in the tree. <code>on_file_removed</code> is called right <em>before</em> it's removed. Ask yourself why that order might matter.</p>
+          </div>
+        </div>
+
+        <div class="part locked" id="part4">
+          <div class="ph"><h4>Part 4 · Discussion</h4><span class="tag">no code</span></div>
+          <div class="lockmsg" id="lock4">Finish Part 3 first. <button class="btn sm" data-unlock="4">Interviewer: show me Part 4</button></div>
+          <div class="body hid">
+            <p>No more code. Answer each one out loud, with the cost in terms of F files, W watches and D tree depth.</p>
+            <ol>
+              <li>A whole directory gets deleted at once. What's the cheapest correct thing to do?</li>
+              <li>Now there are 10,000 watches, mostly on deep paths. What does <code>on_file_added</code> cost, and how would you restructure to fix it?</li>
+              <li>Someone adds a watch whose root is a file, not a directory. What happens in your code? Is that what you want?</li>
+              <li>Product wants the display ordered by most-recently-changed instead of by path. What changes, and what does it cost now?</li>
+              <li>Two threads call this class. Name the first thing that breaks.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ INTERVIEWER ============ -->
+      <section class="panel hid" id="tab-i" role="tabpanel">
+        <h2>Interviewer</h2>
+        <div class="meta">The questions worth asking, the nudges you'll hear, and what each nudge is actually telling you. Open them one at a time, like a real interviewer would give them to you.</div>
+
+        <h3>How round 1 actually runs</h3>
+        <ul>
+          <li>45–60 minutes on Zoom with a shared pad. Usually one problem that grows in parts, not several problems.</li>
+          <li>Interns get class-building, implementation-style problems with an emphasis on clean code, not algorithm bingo. Jane Street says this themselves: open-ended, several plausible angles, no single "aha".</li>
+          <li>Interviewers may stay quiet. Silence is not a verdict. Narrate anyway.</li>
+          <li>Hints are part of the format. Taking a nudge and running with it is a positive signal, not a point off.</li>
+          <li>They don't need you to finish. They need to watch you work. The journey is graded, not the final snapshot.</li>
+        </ul>
+
+        <h3>Clarifying questions, and the answers you'd get</h3>
+        <div id="clarify"></div>
+
+        <h3>The nudge ladder</h3>
+        <p class="meta">If you hear one of these, your current code has a specific problem. Open the nudge only when you'd have earned it.</p>
+        <div id="nudges"></div>
+
+        <h3>Signal decoder</h3>
+        <table class="decoder">
+          <tr><td>"This function is going to be called a lot."</td><td>Cache it. Move the work to the rarer operations. Then say the new costs out loud.</td></tr>
+          <tr><td>"What if these overlap?"</td><td>A set loses information. Count how many things reference each item: reference counting.</td></tr>
+          <tr><td>"Do you need to recompute all of that?"</td><td>Update incrementally from the change, don't rebuild from scratch.</td></tr>
+          <tr><td>"What's the complexity of that?"</td><td>Answer in the problem's real sizes (files, watches, depth), not a bare n.</td></tr>
+          <tr><td>"Is there a simpler way?"</td><td>You're over-engineering. Step back and say the simplest thing that works.</td></tr>
+          <tr><td>"Does that handle…?"</td><td>There's a bug. Trace the example they gave through your code, line by line, out loud.</td></tr>
+          <tr><td>"How confident are you in that?"</td><td>They want calibration. "Fairly confident about X, not sure about Y, let me check Y with an example."</td></tr>
+          <tr><td>"What would you do in production?"</td><td>Defensive choices: return copies, validate inputs, name the invariant your data structure keeps.</td></tr>
+        </table>
+      </section>
+
+      <!-- ============ RUBRIC ============ -->
+      <section class="panel hid" id="tab-r" role="tabpanel">
+        <h2>What gets graded</h2>
+        <div class="meta">Paraphrased from Jane Street's own prep page and interviewing blog post. The one thing they repeat: the main question is whether they'd want to work with you, and the interview is a simulation of working with you.</div>
+
+        <ul>
+          <li><b>Be nice.</b> Pleasant, collaborative. Their words: the cleverest person in the world doesn't get hired if they aren't pleasant to talk to.</li>
+          <li><b>Be clear.</b> Simple and to the point. Use examples. Don't use a term of art you can't define on the spot.</li>
+          <li><b>Know your language.</b> Write real, idiomatic code without looking things up: loops, classes, dicts, exceptions, sensible organization.</li>
+          <li><b>Know what you don't know.</b> Say "I'm not sure" rather than guessing. State your confidence in individual assumptions.</li>
+          <li><b>Write the code you said you would write.</b> Agree on a plan, then execute that plan. Changing plans mid-way without discussion is explicitly called out as a failure mode.</li>
+          <li><b>Name tradeoffs and pick a side, with a reason.</b> "Clearly describe the most important considerations, lay out a plan, note tradeoffs and explain which side you took and why."</li>
+          <li><b>Ask thoughtful questions about unclear parts.</b></li>
+          <li><b>Engage with hints.</b> Update on what the interviewer tells you.</li>
+        </ul>
+
+        <div class="callout"><b>The failure mode this pad is built around.</b> The code in this problem is trivial for everyone who passes. Deriving the suboptimal-to-optimal path is table stakes, not the differentiator. The differentiator is whether the interviewer could follow your reasoning the whole time without asking. Every time you change the design, say three things: what was wrong, what the new invariant is, what it costs now. If you optimize for "solving", you skip all three.</div>
+
+        <h3>The 45-minute shape</h3>
+        <div class="timeline">
+          <span class="tm">0:00–4:00</span><span>Restate the problem in your own words. Draw the tiny example. Ask 3–4 clarifying questions, including sizes and call frequency.</span>
+          <span class="tm">4:00–8:00</span><span>Plan out loud: the fields you'll store, what each operation does, rough cost. Get a nod before typing.</span>
+          <span class="tm">8:00–22:00</span><span>Part 1. Small named methods. Narrate as you go. Then trace one example through the code by hand.</span>
+          <span class="tm">22:00–34:00</span><span>Part 2. Explain the cache, the overlap bug with a set, why counts fix it. Say the new costs.</span>
+          <span class="tm">34:00–42:00</span><span>Part 3. Explain how you find which watches cover a new file. Note the before/after ordering.</span>
+          <span class="tm">42:00–45:00</span><span>Part 4 talk, then your questions for them.</span>
+        </div>
+
+        <h3>Self-check (tick as you go, or after a mock)</h3>
+        <div class="score" id="scoreline">0 of 10</div>
+        <div id="checks"></div>
+
+        <h3>Sentences that do the work</h3>
+        <div class="say"><span class="lbl">When you change the design</span>
+          <p>"The problem with what I have is that <code>display()</code> re-walks every watched subtree on every call, so it's O(F) per call even when nothing changed."</p>
+          <p>"So the invariant I'll keep is: a path is in the display exactly when its reference count is above zero. Add and remove maintain that; display just reads."</p>
+          <p>"That moves the cost to add and remove, which are O(size of that subtree) each, and display becomes O(size of display) for the copy. Given the call frequencies you gave me, that's the right trade."</p>
+        </div>
+        <div class="say"><span class="lbl">When you're unsure</span>
+          <p>"I'm fairly confident about the counting. I'm less sure about the removal order in Part 3; let me check it against the example before I commit."</p>
+        </div>
+        <div class="say"><span class="lbl">When you take a hint</span>
+          <p>"Right, that's the overlap case. A set can't tell me whether the file is still covered after one watch goes away. I'll switch the set to a count per path. Everything else stays the same."</p>
+        </div>
+      </section>
+
+      <!-- ============ SOLUTION ============ -->
+      <section class="panel hid" id="tab-s" role="tabpanel">
+        <h2>Solution and talk track</h2>
+        <div class="meta">Locked on purpose. Give yourself 30 minutes on the pad first. Reading this early turns a practice run into a reading exercise.</div>
+        <div class="lock" id="sollock">
+          <p>Solution hidden.</p>
+          <button class="btn" id="solbtn">Reveal solution</button>
+          <p class="meta" style="margin-top:8px">Second click confirms.</p>
+        </div>
+        <div class="sol hid" id="solbody"></div>
+      </section>
+    </aside>
+
+    <section class="work">
+      <div class="editor" id="editor">
+        <div class="gutter" id="gutter">1</div>
+        <div class="codewrap">
+          <pre id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
+          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code editor"></textarea>
+        </div>
+      </div>
+      <div class="console">
+        <div class="bar">
+          <button class="ctab-btn" id="cb-tests" aria-selected="true">Tests</button>
+          <button class="ctab-btn" id="cb-out" aria-selected="false">Output</button>
+          <span class="status" id="status">Press Run to run the tests for the parts you've unlocked.</span>
+        </div>
+        <div class="tests" id="tests"></div>
+        <div class="out hid" id="out"><span class="dim">Nothing yet.</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ======= STARTER CODE ======= -->
+<script type="text/plain" id="starter-python"># Jane Street R1 practice — "Watchlist"
+# Run: Ctrl/Cmd + Enter. Tests run for every part you've unlocked.
+# -------------------------------------------------------------------------
+# GIVEN — the tree and its helpers. Read them, use them, don't rewrite them.
+# -------------------------------------------------------------------------
+class Node:
+    def __init__(self, name, is_file, parent=None):
+        self.name = name
+        self.is_file = is_file
+        self.parent = parent
+        self.children = {}          # name -> Node
+
+    def path(self):
+        parts = []
+        n = self
+        while n is not None:
+            if n.name:
+                parts.append(n.name)
+            n = n.parent
+        return "/" + "/".join(reversed(parts))
+
+
+class FileTree:
+    def __init__(self):
+        self.root = Node("", False)
+
+    def find(self, path):
+        """The Node at `path`, or None if it doesn't exist."""
+        node = self.root
+        for part in path.split("/"):
+            if not part:
+                continue
+            node = node.children.get(part)
+            if node is None:
+                return None
+        return node
+
+    def iter_files(self, node):
+        """Yield every *file* node in the subtree under `node` (DFS)."""
+        if node.is_file:
+            yield node
+            return
+        for child in node.children.values():
+            yield from self.iter_files(child)
+
+    def add_file(self, path):
+        parts = [p for p in path.split("/") if p]
+        node = self.root
+        for part in parts[:-1]:
+            if part not in node.children:
+                node.children[part] = Node(part, False, node)
+            node = node.children[part]
+        leaf = Node(parts[-1], True, node)
+        node.children[parts[-1]] = leaf
+        return leaf
+
+    def remove_file(self, path):
+        node = self.find(path)
+        del node.parent.children[node.name]
+        return node
+
+
+# -------------------------------------------------------------------------
+# YOUR CODE
+# -------------------------------------------------------------------------
+class Watchlist:
+    def __init__(self, tree):
+        self.tree = tree
+
+    def add_watch(self, root_path, ext=None):
+        """Part 1. Watch every file under root_path whose name ends with ext.
+        ext=None means every file. Returns a watch id."""
+        raise NotImplementedError
+
+    def remove_watch(self, watch_id):
+        """Part 1."""
+        raise NotImplementedError
+
+    def display(self):
+        """Part 1. Sorted list of paths covered by at least one watch."""
+        raise NotImplementedError
+
+    def on_file_added(self, path):
+        """Part 3. Called right AFTER tree.add_file(path)."""
+        raise NotImplementedError
+
+    def on_file_removed(self, path):
+        """Part 3. Called right BEFORE tree.remove_file(path)."""
+        raise NotImplementedError
+</script>
+
+<script type="text/plain" id="starter-javascript">// Jane Street R1 practice — "Watchlist"
+// Run: Ctrl/Cmd + Enter. Tests run for every part you've unlocked.
+// -------------------------------------------------------------------------
+// GIVEN — the tree and its helpers. Read them, use them, don't rewrite them.
+// -------------------------------------------------------------------------
+class Node {
+  constructor(name, isFile, parent = null) {
+    this.name = name;
+    this.isFile = isFile;
+    this.parent = parent;
+    this.children = new Map();   // name -> Node
+  }
+  path() {
+    const parts = [];
+    for (let n = this; n !== null; n = n.parent) if (n.name) parts.push(n.name);
+    return "/" + parts.reverse().join("/");
+  }
+}
+
+class FileTree {
+  constructor() { this.root = new Node("", false); }
+
+  /** The Node at `path`, or null if it doesn't exist. */
+  find(path) {
+    let node = this.root;
+    for (const part of path.split("/").filter(Boolean)) {
+      node = node.children.get(part);
+      if (!node) return null;
+    }
+    return node;
+  }
+
+  /** Every *file* node in the subtree under `node` (DFS). */
+  *iterFiles(node) {
+    if (node.isFile) { yield node; return; }
+    for (const child of node.children.values()) yield* this.iterFiles(child);
+  }
+
+  addFile(path) {
+    const parts = path.split("/").filter(Boolean);
+    let node = this.root;
+    for (const part of parts.slice(0, -1)) {
+      if (!node.children.has(part)) node.children.set(part, new Node(part, false, node));
+      node = node.children.get(part);
+    }
+    const leaf = new Node(parts[parts.length - 1], true, node);
+    node.children.set(leaf.name, leaf);
+    return leaf;
+  }
+
+  removeFile(path) {
+    const node = this.find(path);
+    node.parent.children.delete(node.name);
+    return node;
+  }
+}
+
+// -------------------------------------------------------------------------
+// YOUR CODE
+// -------------------------------------------------------------------------
+class Watchlist {
+  constructor(tree) {
+    this.tree = tree;
+  }
+
+  /** Part 1. Watch every file under rootPath whose name ends with ext.
+   *  ext == null means every file. Returns a watch id. */
+  addWatch(rootPath, ext = null) {
+    throw new Error("TODO");
+  }
+
+  /** Part 1. */
+  removeWatch(watchId) {
+    throw new Error("TODO");
+  }
+
+  /** Part 1. Sorted array of paths covered by at least one watch. */
+  display() {
+    throw new Error("TODO");
+  }
+
+  /** Part 3. Called right AFTER tree.addFile(path). */
+  onFileAdded(path) {
+    throw new Error("TODO");
+  }
+
+  /** Part 3. Called right BEFORE tree.removeFile(path). */
+  onFileRemoved(path) {
+    throw new Error("TODO");
+  }
+}
+</script>
+
+<script type="text/plain" id="starter-java">// Jane Street R1 practice — "Watchlist" (Java)
+// The pad can't run Java in the browser. Use it as your pad, then run locally:
+//   javac Watchlist.java && java Watchlist        (download Watchlist.java from the chat)
+import java.util.*;
+
+public class Watchlist {
+
+    // ------------------------------------------------------------
+    // GIVEN: the tree and its helpers. Read them, don't rewrite them.
+    // ------------------------------------------------------------
+    static class Node {
+        final String name; final boolean isFile; final Node parent;
+        final Map<String, Node> children = new LinkedHashMap<>();
+        Node(String name, boolean isFile, Node parent) { this.name = name; this.isFile = isFile; this.parent = parent; }
+        String path() {
+            Deque<String> parts = new ArrayDeque<>();
+            for (Node n = this; n != null; n = n.parent) if (!n.name.isEmpty()) parts.push(n.name);
+            return "/" + String.join("/", parts);
+        }
+    }
+
+    static class FileTree {
+        final Node root = new Node("", false, null);
+        Node find(String path) { /* given */ Node node = root;
+            for (String part : path.split("/")) { if (part.isEmpty()) continue; node = node.children.get(part); if (node == null) return null; }
+            return node; }
+        /** Every *file* node in the subtree rooted at node (DFS). */
+        List<Node> iterFiles(Node node) { List<Node> out = new ArrayList<>(); collect(node, out); return out; }
+        private void collect(Node n, List<Node> out) { if (n.isFile) { out.add(n); return; } for (Node c : n.children.values()) collect(c, out); }
+        Node addFile(String path) { /* given */ String[] parts = Arrays.stream(path.split("/")).filter(s -> !s.isEmpty()).toArray(String[]::new);
+            Node node = root;
+            for (int i = 0; i < parts.length - 1; i++) { Node child = node.children.get(parts[i]); if (child == null) { child = new Node(parts[i], false, node); node.children.put(parts[i], child); } node = child; }
+            Node leaf = new Node(parts[parts.length - 1], true, node); node.children.put(leaf.name, leaf); return leaf; }
+        Node removeFile(String path) { Node node = find(path); node.parent.children.remove(node.name); return node; }
+    }
+
+    // ------------------------------------------------------------
+    // YOUR CODE
+    // ------------------------------------------------------------
+    private final FileTree tree;
+
+    Watchlist(FileTree tree) {
+        this.tree = tree;
+    }
+
+    /** Part 1. Returns an id for the watch. ext == null means "any file". */
+    int addWatch(String rootPath, String ext) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    /** Part 1. */
+    void removeWatch(int watchId) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    /** Part 1. Sorted list of every path covered by at least one watch. Called A LOT. */
+    List<String> display() {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    /** Part 3. Called right after tree.addFile(path). */
+    void onFileAdded(String path) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    /** Part 3. Called right BEFORE tree.removeFile(path). */
+    void onFileRemoved(String path) {
+        throw new UnsupportedOperationException("TODO");
+    }
+}
+</script>
+
+<!-- ======= TEST HARNESSES ======= -->
+<script type="text/plain" id="harness-python">
+def __run_tests__(ns, max_part=3):
+    FileTree = ns["FileTree"]; Watchlist = ns["Watchlist"]
+
+    def assert_eq(actual, expected, label):
+        if actual != expected:
+            raise AssertionError(f"{label}\n   expected {expected!r}\n   got      {actual!r}")
+
+    def build():
+        t = FileTree()
+        for p in ["/src/main.py", "/src/util.py", "/src/README.md", "/src/net/sock.py",
+                  "/src/net/sock_test.py", "/docs/guide.md", "/docs/img/logo.png"]:
+            t.add_file(p)
+        return t
+
+    def t1_empty():
+        w = Watchlist(build()); assert_eq(w.display(), [], "display() on fresh watchlist")
+
+    def t1_single():
+        w = Watchlist(build()); w.add_watch("/src", ".py")
+        assert_eq(w.display(), ["/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"],
+                  "display after add_watch('/src', '.py')")
+
+    def t1_two():
+        w = Watchlist(build()); a = w.add_watch("/src", ".py"); b = w.add_watch("/docs")
+        assert_eq(w.display(), ["/docs/guide.md", "/docs/img/logo.png", "/src/main.py", "/src/net/sock.py",
+                                "/src/net/sock_test.py", "/src/util.py"], "both watches")
+        w.remove_watch(a); assert_eq(w.display(), ["/docs/guide.md", "/docs/img/logo.png"], "after removing /src watch")
+        w.remove_watch(b); assert_eq(w.display(), [], "after removing both")
+
+    def t1_missing():
+        w = Watchlist(build()); x = w.add_watch("/nope"); assert_eq(w.display(), [], "missing root")
+        w.remove_watch(x); assert_eq(w.display(), [], "after removing missing-root watch")
+
+    def t2_overlap():
+        w = Watchlist(build()); a = w.add_watch("/src"); b = w.add_watch("/src/net", ".py")
+        all_ = ["/src/README.md", "/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"]
+        assert_eq(w.display(), all_, "both watches")
+        w.remove_watch(b); assert_eq(w.display(), all_, "net files still covered by the /src watch")
+        w.remove_watch(a); assert_eq(w.display(), [], "nothing left")
+
+    def t2_copy():
+        w = Watchlist(build()); w.add_watch("/docs"); d = w.display(); d.append("/garbage")
+        assert_eq(w.display(), ["/docs/guide.md", "/docs/img/logo.png"], "cache untouched")
+
+    def t2_hot():
+        t = build(); w = Watchlist(t); w.add_watch("/src")
+        walks = [0]; orig = t.iter_files
+        def spy(node):
+            walks[0] += 1
+            yield from orig(node)
+        t.iter_files = spy
+        for _ in range(1000): w.display()
+        if walks[0] != 0:
+            raise AssertionError(f"display() called iter_files {walks[0]} times across 1000 calls; it should be served from a cache")
+
+    def t3_add():
+        t = build(); w = Watchlist(t); a = w.add_watch("/src", ".py"); w.add_watch("/src/net")
+        t.add_file("/src/net/new.py"); w.on_file_added("/src/net/new.py")
+        if "/src/net/new.py" not in w.display(): raise AssertionError("new file should be displayed")
+        w.remove_watch(a)
+        if "/src/net/new.py" not in w.display(): raise AssertionError("new file still covered by /src/net watch")
+        if "/src/main.py" in w.display(): raise AssertionError("/src/main.py should be gone after removing the /src watch")
+
+    def t3_remove():
+        t = build(); w = Watchlist(t); w.add_watch("/src/net")
+        t.add_file("/src/net/new.py"); w.on_file_added("/src/net/new.py")
+        w.on_file_removed("/src/net/new.py"); t.remove_file("/src/net/new.py")
+        assert_eq(w.display(), ["/src/net/sock.py", "/src/net/sock_test.py"], "after remove")
+        t.add_file("/src/other.txt"); w.on_file_added("/src/other.txt")
+        assert_eq(w.display(), ["/src/net/sock.py", "/src/net/sock_test.py"], "uncovered file ignored")
+
+    tests = [
+        (1, "empty watchlist displays nothing", t1_empty),
+        (1, "single watch with extension filter", t1_single),
+        (1, "two disjoint watches, remove one, remove both", t1_two),
+        (1, "watch on a path that doesn't exist is a no-op", t1_missing),
+        (2, "overlapping watches: removing one keeps shared files (ref counting)", t2_overlap),
+        (2, "display() returns a copy; caller can't corrupt the cache", t2_copy),
+        (2, "display() does not re-walk the tree (hot path)", t2_hot),
+        (3, "file added under two live watches, then one watch removed", t3_add),
+        (3, "file removed while watched; unwatched file added is ignored", t3_remove),
+    ]
+    for part, name, fn in tests:
+        if part > max_part: continue
+        try:
+            fn(); print(f"PASS|{part}|{name}")
+        except BaseException as e:
+            msg = str(e) if isinstance(e, AssertionError) else f"{type(e).__name__}: {e}"
+            print(f"FAIL|{part}|{name}|{msg}")
+</script>
+
+<script type="text/plain" id="runner-python">
+import sys, traceback
+from browser import window
+class _Out:
+    def write(self, s):
+        window.__pad_out(str(s))
+        return len(s)
+    def flush(self):
+        pass
+sys.stdout = _Out()
+sys.stderr = _Out()
+__ns = {"__name__": "__main__"}
+try:
+    exec(window.__pad_src, __ns)
+except BaseException as __e:
+    print("__PAD_ERROR__")
+    try:
+        traceback.print_exc()
+    except BaseException:
+        print(type(__e).__name__ + ": " + str(__e))
+else:
+    __h = {}
+    exec(window.__pad_harness, __h)
+    __h["__run_tests__"](__ns, window.__pad_max_part)
+</script>
+
+<script type="text/plain" id="harness-javascript">
+;(function () {
+  function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function assertEq(actual, expected, label) {
+    if (!eq(actual, expected)) throw new Error(label + "\n   expected " + JSON.stringify(expected) + "\n   got      " + JSON.stringify(actual));
+  }
+  function build() {
+    const t = new FileTree();
+    for (const p of ["/src/main.py", "/src/util.py", "/src/README.md", "/src/net/sock.py",
+                     "/src/net/sock_test.py", "/docs/guide.md", "/docs/img/logo.png"]) t.addFile(p);
+    return t;
+  }
+  const tests = [
+    [1, "empty watchlist displays nothing", () => {
+      const w = new Watchlist(build()); assertEq(w.display(), [], "display() on fresh watchlist");
+    }],
+    [1, "single watch with extension filter", () => {
+      const w = new Watchlist(build()); w.addWatch("/src", ".py");
+      assertEq(w.display(), ["/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"], "display after addWatch('/src', '.py')");
+    }],
+    [1, "two disjoint watches, remove one, remove both", () => {
+      const w = new Watchlist(build()); const a = w.addWatch("/src", ".py"); const b = w.addWatch("/docs");
+      assertEq(w.display(), ["/docs/guide.md", "/docs/img/logo.png", "/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"], "both watches");
+      w.removeWatch(a); assertEq(w.display(), ["/docs/guide.md", "/docs/img/logo.png"], "after removing /src watch");
+      w.removeWatch(b); assertEq(w.display(), [], "after removing both");
+    }],
+    [1, "watch on a path that doesn't exist is a no-op", () => {
+      const w = new Watchlist(build()); const x = w.addWatch("/nope"); assertEq(w.display(), [], "missing root");
+      w.removeWatch(x); assertEq(w.display(), [], "after removing missing-root watch");
+    }],
+    [2, "overlapping watches: removing one keeps shared files (ref counting)", () => {
+      const w = new Watchlist(build()); const a = w.addWatch("/src"); const b = w.addWatch("/src/net", ".py");
+      const all = ["/src/README.md", "/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"];
+      assertEq(w.display(), all, "both watches");
+      w.removeWatch(b); assertEq(w.display(), all, "net files still covered by the /src watch");
+      w.removeWatch(a); assertEq(w.display(), [], "nothing left");
+    }],
+    [2, "display() returns a copy; caller can't corrupt the cache", () => {
+      const w = new Watchlist(build()); w.addWatch("/docs"); const d = w.display(); d.push("/garbage");
+      assertEq(w.display(), ["/docs/guide.md", "/docs/img/logo.png"], "cache untouched");
+    }],
+    [2, "display() does not re-walk the tree (hot path)", () => {
+      const t = build(); const w = new Watchlist(t); w.addWatch("/src");
+      let walks = 0; const orig = t.iterFiles.bind(t);
+      t.iterFiles = function* (n) { walks++; yield* orig(n); };
+      for (let i = 0; i < 1000; i++) w.display();
+      if (walks !== 0) throw new Error("display() called iterFiles " + walks + " times across 1000 calls; it should be served from a cache");
+    }],
+    [3, "file added under two live watches, then one watch removed", () => {
+      const t = build(); const w = new Watchlist(t); const a = w.addWatch("/src", ".py"); w.addWatch("/src/net");
+      t.addFile("/src/net/new.py"); w.onFileAdded("/src/net/new.py");
+      if (!w.display().includes("/src/net/new.py")) throw new Error("new file should be displayed");
+      w.removeWatch(a);
+      if (!w.display().includes("/src/net/new.py")) throw new Error("new file still covered by /src/net watch");
+      if (w.display().includes("/src/main.py")) throw new Error("/src/main.py should be gone after removing the /src watch");
+    }],
+    [3, "file removed while watched; unwatched file added is ignored", () => {
+      const t = build(); const w = new Watchlist(t); w.addWatch("/src/net");
+      t.addFile("/src/net/new.py"); w.onFileAdded("/src/net/new.py");
+      w.onFileRemoved("/src/net/new.py"); t.removeFile("/src/net/new.py");
+      assertEq(w.display(), ["/src/net/sock.py", "/src/net/sock_test.py"], "after remove");
+      t.addFile("/src/other.txt"); w.onFileAdded("/src/other.txt");
+      assertEq(w.display(), ["/src/net/sock.py", "/src/net/sock_test.py"], "uncovered file ignored");
+    }],
+  ];
+  for (const [part, name, fn] of tests) {
+    if (part > __MAX_PART__) continue;
+    try { fn(); console.log("PASS|" + part + "|" + name); }
+    catch (e) { const nm = e && e.name && e.name !== "Error" ? e.name + ": " : ""; console.log("FAIL|" + part + "|" + name + "|" + nm + ((e && e.message) || e)); }
+  }
+})();
+</script>
+
+<!-- ======= SOLUTION ======= -->
+<script type="text/plain" id="solution-python">from bisect import insort, bisect_left
+
+
+def matches(name, ext):
+    """A file matches a watch when there's no filter, or its name ends with it."""
+    return ext is None or name.endswith(ext)
+
+
+class Watchlist:
+    """
+    Invariant: a path is in the display exactly when its reference count
+    (number of active watches covering it) is above zero.
+
+      watches:  id -> (root_path, ext)      what's active
+      refs:     path -> count               how many watches cover the path
+      display:  sorted list of paths        every path with count > 0
+    """
+
+    def __init__(self, tree):
+        self.tree = tree
+        self.watches = {}
+        self.next_id = 0
+        self.refs = {}
+        self.sorted_display = []
+
+    # ---- Part 1 (already in its Part 2 shape; see talk track) ----
+    def add_watch(self, root_path, ext=None):
+        watch_id = self.next_id
+        self.next_id += 1
+        self.watches[watch_id] = (root_path, ext)
+        for f in self._covered_files(root_path, ext):
+            self._acquire(f.path())
+        return watch_id
+
+    def remove_watch(self, watch_id):
+        root_path, ext = self.watches.pop(watch_id)
+        for f in self._covered_files(root_path, ext):
+            self._release(f.path())
+
+    def display(self):
+        return list(self.sorted_display)      # copy: callers can't corrupt the cache
+
+    # ---- Part 3 ----
+    def on_file_added(self, path):
+        for _ in range(self._covering_watch_count(path)):
+            self._acquire(path)
+
+    def on_file_removed(self, path):
+        for _ in range(self._covering_watch_count(path)):
+            self._release(path)
+
+    # ---- helpers ----
+    def _covered_files(self, root_path, ext):
+        root = self.tree.find(root_path)
+        if root is None:
+            return []
+        return [f for f in self.tree.iter_files(root) if matches(f.name, ext)]
+
+    def _covering_watch_count(self, path):
+        """How many active watches cover this one file."""
+        node = self.tree.find(path)
+        ancestors = set()
+        n = node
+        while n is not None:
+            ancestors.add(n.path())
+            n = n.parent
+        return sum(1 for root_path, ext in self.watches.values()
+                   if root_path in ancestors and matches(node.name, ext))
+
+    def _acquire(self, path):
+        count = self.refs.get(path, 0)
+        self.refs[path] = count + 1
+        if count == 0:
+            insort(self.sorted_display, path)   # from bisect
+
+    def _release(self, path):
+        count = self.refs[path]
+        if count == 1:
+            del self.refs[path]
+            self.sorted_display.pop(bisect_left(self.sorted_display, path))
+        else:
+            self.refs[path] = count - 1
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const txt = (id) => document.getElementById(id).textContent.replace(/^\n/, "");
+  const STARTERS = { python: txt("starter-python"), javascript: txt("starter-javascript"), java: txt("starter-java") };
+  const HL_LANG = { python: "python", javascript: "javascript", java: "java" };
+
+  // ---------- API blocks in the question ----------
+  const API1 = {
+    python: `<span class="c"># returns a watch id; ext=None means every file</span>
+add_watch(root_path, ext=None)
+remove_watch(watch_id)
+<span class="c"># sorted list of every path covered by at least one watch</span>
+display()`,
+    javascript: `<span class="c">// returns a watch id; ext == null means every file</span>
+addWatch(rootPath, ext = null)
+removeWatch(watchId)
+<span class="c">// sorted array of every path covered by at least one watch</span>
+display()`,
+    java: `<span class="c">// returns a watch id; ext == null means every file</span>
+int addWatch(String rootPath, String ext)
+void removeWatch(int watchId)
+<span class="c">// sorted list of every path covered by at least one watch</span>
+List&lt;String&gt; display()`
+  };
+  const API3 = {
+    python: `on_file_added(path)      <span class="c"># called right after  tree.add_file(path)</span>
+on_file_removed(path)    <span class="c"># called right before tree.remove_file(path)</span>`,
+    javascript: `onFileAdded(path)      <span class="c">// called right after  tree.addFile(path)</span>
+onFileRemoved(path)    <span class="c">// called right before tree.removeFile(path)</span>`,
+    java: `void onFileAdded(String path)      <span class="c">// called right after  tree.addFile(path)</span>
+void onFileRemoved(String path)    <span class="c">// called right before tree.removeFile(path)</span>`
+  };
+
+  // ---------- Interviewer content ----------
+  const CLARIFY = [
+    ["Is the display sorted? By what?", "Sorted by full path, plain string order. Keep it simple."],
+    ["Does the extension filter match the end of the whole name? Would \".py\" match \"notes.ipy\"?", "endswith is fine. Good catch; say that assumption out loud and move on."],
+    ["What if root_path doesn't exist?", "Treat it as a watch that currently covers nothing. Don't crash. Keep the watch; it still has an id."],
+    ["Can the same watch be added twice? Are ids unique?", "Ids are unique per add. Two identical adds are two separate watches, and that matters later."],
+    ["Roughly how big is this? Files, watches, and how often does each operation run?", "Thousands of files, a handful of watches at a time. Adds and removes are rare. And display… display is going to be called a lot. <br><br><b>This is the question that gets you Part 2's hint for free, before Part 2 starts.</b> Always ask about sizes and call frequency."],
+    ["Should display() return my internal list or a copy?", "What would you do in production? (They want you to say: a copy, so a caller can't corrupt the cache, and to name the cost of that copy.)"],
+    ["Can a watch root be a file rather than a directory?", "Let's not worry about it for now. (Note it as an edge case; it comes back in Part 4.)"]
+  ];
+  const NUDGES = [
+    ["You compute the display inside display()", "Hmm. This function is going to be called a lot. Is there anything we're redoing that we don't have to?",
+     "Cache the display. The work moves to add_watch / remove_watch, which are rare. Then say the new cost of each operation out loud."],
+    ["You store the displayed paths in a set", "Say I add a watch on /src, then one on /src/net, then remove the second one. What's on screen?",
+     "A set can't tell you whether a file is <em>still</em> covered after one watch goes away. Keep a count per path of how many watches cover it. Reference counting. A path is displayed when its count is above zero."],
+    ["You keep the counts but sort inside display()", "Where does the sorting happen now?",
+     "Either keep the list sorted as you insert and remove (bisect, O(log n) search plus O(n) shift) or keep a dirty flag and re-sort lazily on the next display. Both are fine. Pick one and say why."],
+    ["Part 3: you're not sure which watches cover a new file", "When a new file shows up, how do you figure out which watches care about it?",
+     "Walk the file's ancestors; a watch covers it when the watch's root is one of those ancestors and the extension matches. Count the matches and bump the ref count that many times. If there were thousands of watches, you'd index them by root path instead of scanning."],
+    ["Part 3: you ask why removal is called before the node is gone", "Is it a problem that on_file_removed is called before the node is removed?",
+     "No, it's a gift: the node still has its parent chain, so you can reuse the same \"which watches cover this\" helper. If it were called after, you'd need to compute ancestors from the path string instead. Say that out loud; it shows you noticed."],
+    ["You went quiet for more than a minute", "What are you thinking about right now?",
+     "Narrate. Even \"I'm checking whether remove handles the case where the count was already one\" is better than silence."]
+  ];
+  const CHECKS = [
+    "Restated the problem in my own words and drew a tiny example before coding",
+    "Asked about sizes and call frequency (this is where \"called a lot\" comes from)",
+    "Named the fields I'd store and why, before typing anything",
+    "Gave the cost of each operation in F (files), W (watches), D (depth), not a bare n",
+    "Explained why a set is wrong and a count is right, using the overlap example",
+    "Traced one example through the finished code out loud",
+    "Named at least one tradeoff I didn't take, and why",
+    "Said \"I'm not sure\" at least once instead of bluffing, then checked with an example",
+    "Code has small named helpers (acquire / release / covering watches), not one blob",
+    "Wrote the plan I said I'd write; any change was announced first"
+  ];
+
+  // ---------- Solution body ----------
+  function solutionHTML() {
+    let code; try { code = hljs.highlight(txt("solution-python"), { language: "python" }).value; } catch (e) { code = txt("solution-python").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]); }
+    return `
+<h3>The talk track, part by part</h3>
+<div class="say"><span class="lbl">Part 1: before typing</span>
+<p>"A watch is a root plus an optional extension. I'll keep the watches in a dict keyed by an id I hand out. The simplest display is: for each watch, walk its subtree with the <code>iter_files</code> helper you gave me, keep the matching paths, dedupe, sort. That's O(W · F) per display call. I'll start there so we have something correct, then we can talk about whether that's fast enough."</p>
+<p>Then write it. Then trace <code>add_watch("/src", ".py")</code> through it by hand on the sample tree.</p>
+</div>
+<div class="say"><span class="lbl">Part 2: when you hear "called a lot"</span>
+<p>"Right. The problem with what I have is that display re-walks every watched subtree on every call even when nothing changed. Since adds and removes are rare and display is hot, I want to move the work to add and remove and make display a read."</p>
+<p>"A naive cache is a set of paths, updated on add and remove. But that breaks on overlap: watch /src, watch /src/net, remove the second, and a set would drop the net files even though the first watch still covers them. So instead of a set I'll keep a count per path: how many active watches cover it. The invariant is: a path is displayed exactly when its count is above zero. add_watch increments for each file it covers, remove_watch decrements, and the file leaves the display when the count hits zero."</p>
+<p>"Costs now: add and remove are O(size of that watch's subtree), display is O(size of display) for the copy. I return a copy so a caller can't corrupt the cache. If the copy is too expensive we could hand out a read-only view, but I'd start with the copy."</p>
+<p>"For sort order I'll keep the display list sorted with bisect on insert and remove. That's O(log n) to find the spot plus O(n) for the shift. The alternative is a dirty flag and a lazy re-sort on the next display, which is better if there are bursts of adds. Given adds are rare, I'll take bisect."</p>
+</div>
+<div class="say"><span class="lbl">Part 3: the tree changes</span>
+<p>"When a file appears I need to know how many active watches cover it. A watch covers it when the watch root is one of the file's ancestors and the extension matches. So: collect the ancestor paths by walking up through parent pointers, that's O(D), then scan the watches, O(W). Bump the count that many times. Removal is the same scan with decrements."</p>
+<p>"The callback order matters: on_file_removed is called before the node is gone, so I can still walk up its parent chain. If it were called after, I'd compute the ancestors from the path string instead."</p>
+<p>"If W got large I'd index watches by root path so I only look at watches whose root is actually one of the D ancestors: O(D) instead of O(W)."</p>
+</div>
+
+<h3>Reference solution (Python)</h3>
+<p class="meta">The GIVEN section is unchanged. <code>insort</code> and <code>bisect_left</code> come from <code>bisect</code>. Notice how little code there is. That's the point: the code is not where the signal is.</p>
+<pre><code>${code}</code></pre>
+
+<h3>Costs, in the problem's own sizes</h3>
+<p class="meta">F = files in a watched subtree, W = active watches, D = tree depth, n = paths on display.</p>
+<table class="ctab">
+<tr><th>Operation</th><th>Naive (recompute)</th><th>Cached + counted</th></tr>
+<tr><td><code>display()</code></td><td>O(W · F) + sort</td><td>O(n) copy, or O(1) without the copy</td></tr>
+<tr><td><code>add_watch</code></td><td>O(1)</td><td>O(F · log n) with bisect, O(F) with a dirty flag</td></tr>
+<tr><td><code>remove_watch</code></td><td>O(1)</td><td>O(F · log n)</td></tr>
+<tr><td><code>on_file_added / removed</code></td><td>n/a</td><td>O(D + W), or O(D) if watches are indexed by root</td></tr>
+</table>
+
+<h3>Part 4 answers, in one line each</h3>
+<ol>
+<li><b>Directory deleted.</b> Iterate its files with <code>iter_files</code> before it's detached and release each one; O(files in it + W per file), or O(files in it · D) with the root index.</li>
+<li><b>10,000 watches.</b> <code>on_file_added</code> is O(D + W) because of the linear scan. Index watches by root path (<code>dict: root_path -> list of watches</code>); then you only look up the D ancestors.</li>
+<li><b>Watch root is a file.</b> <code>iter_files</code> yields just that file, so it works by accident. Say that, then say whether you'd reject it at <code>add_watch</code> time. Either is fine if you say why.</li>
+<li><b>Order by recency.</b> The count dict stays. The sorted list becomes a different structure: a list you move-to-front on change (O(n)), or a doubly linked list plus a dict for O(1), the same trick as an LRU cache. Note Jane Street's published "Memo" question ends in exactly that structure.</li>
+<li><b>Two threads.</b> The count update is a read-modify-write; two concurrent releases can skip the delete, or one can see count 1 and delete while the other increments. A lock around each public method is the first fix.</li>
+</ol>
+
+<h3>Things people say that lose points here</h3>
+<ul>
+<li>"I'll just use a set" without naming the overlap case. The overlap case is the whole second part.</li>
+<li>Rewriting <code>iter_files</code> instead of using the helper you were given. It signals you didn't read the pad.</li>
+<li>"It's O(n)" with no definition of n.</li>
+<li>Jumping straight to the cached version without saying what the naive version costs and why that's not good enough. You need to show the comparison, not just the answer.</li>
+<li>Changing the plan mid-way silently. Announce the change first.</li>
+</ul>`;
+  }
+
+  // ---------- Reveal widgets ----------
+  function revealList(container, items, render) {
+    container.innerHTML = "";
+    items.forEach((it, i) => {
+      const d = document.createElement("div"); d.className = "reveal";
+      const b = document.createElement("button");
+      b.innerHTML = `<span class="n">${String(i + 1).padStart(2, "0")}</span><span>${render.head(it)}</span><span class="chev">›</span>`;
+      const body = document.createElement("div"); body.className = "body hid"; body.innerHTML = render.body(it);
+      b.addEventListener("click", () => { d.classList.toggle("open"); body.classList.toggle("hid"); });
+      d.append(b, body); container.append(d);
+    });
+  }
+  revealList($("#clarify"), CLARIFY, { head: (c) => `"${c[0]}"`, body: (c) => `<div class="ans"><b>Interviewer:</b> ${c[1]}</div>` });
+  revealList($("#nudges"), NUDGES, { head: (n) => `If: ${n[0]}`, body: (n) => `<div class="ans"><b>Interviewer:</b> "${n[1]}"</div><div class="decode"><b>What it means:</b> ${n[2]}</div>` });
+
+  // ---------- Checklist ----------
+  const checksEl = $("#checks");
+  let checkState = LS.get("pad.checks", []);
+  function renderChecks() {
+    checksEl.innerHTML = "";
+    CHECKS.forEach((c, i) => {
+      const l = document.createElement("label"); l.className = "check" + (checkState[i] ? " done" : "");
+      const inp = document.createElement("input"); inp.type = "checkbox"; inp.id = "chk" + i; inp.checked = !!checkState[i];
+      inp.addEventListener("change", () => { checkState[i] = inp.checked; LS.set("pad.checks", checkState); renderChecks(); });
+      const s = document.createElement("span"); s.textContent = c;
+      l.append(inp, s); checksEl.append(l);
+    });
+    const n = checkState.filter(Boolean).length;
+    $("#scoreline").textContent = `${n} of ${CHECKS.length}`;
+    $("#rscore").textContent = `${n}/${CHECKS.length}`;
+  }
+  renderChecks();
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
+    ["q", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
+  }));
+
+  // ---------- Parts unlock ----------
+  let maxPart = LS.get("pad.maxPart", 1);
+  function applyParts() {
+    [2, 3, 4].forEach((p) => {
+      const el = $("#part" + p); const unlocked = maxPart >= p;
+      el.classList.toggle("locked", !unlocked);
+      el.querySelector(".lockmsg").classList.toggle("hid", unlocked);
+      el.querySelector(".body").classList.toggle("hid", !unlocked);
+    });
+    renderTests(lastResults);
+  }
+  document.querySelectorAll("[data-unlock]").forEach((b) => b.addEventListener("click", () => {
+    maxPart = Math.max(maxPart, +b.dataset.unlock); LS.set("pad.maxPart", maxPart); applyParts();
+  }));
+
+  // ---------- Solution lock ----------
+  let solArmed = false;
+  $("#solbtn").addEventListener("click", () => {
+    if (!solArmed) { solArmed = true; $("#solbtn").textContent = "Yes, show it"; return; }
+    $("#sollock").classList.add("hid"); $("#solbody").classList.remove("hid"); $("#solbody").innerHTML = solutionHTML();
+  });
+
+  // ---------- Editor ----------
+  const ta = $("#code"), hlc = $("#hlcode"), hlpre = $("#hl"), gutter = $("#gutter"), langSel = $("#lang");
+  let lang = LS.get("pad.lang", "python");
+  langSel.value = lang;
+  function codeKey() { return "pad.code." + lang; }
+  function loadCode() { ta.value = LS.get(codeKey(), STARTERS[lang]); render(); }
+  function render() {
+    const v = ta.value;
+    let html;
+    try { html = hljs.highlight(v, { language: HL_LANG[lang] }).value; } catch (e) { html = v.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]); }
+    hlc.innerHTML = html + "\n";
+    const lines = v.split("\n").length;
+    let g = ""; for (let i = 1; i <= lines; i++) g += i + "\n";
+    gutter.textContent = g;
+    syncScroll();
+  }
+  function syncScroll() { hlpre.scrollTop = ta.scrollTop; hlpre.scrollLeft = ta.scrollLeft; gutter.scrollTop = ta.scrollTop; }
+  ta.addEventListener("input", () => { render(); LS.set(codeKey(), ta.value); });
+  ta.addEventListener("scroll", syncScroll);
+  ta.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
+    const s = ta.selectionStart, en = ta.selectionEnd, v = ta.value;
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      if (s !== en && v.slice(s, en).includes("\n")) {
+        const le = v.indexOf("\n", en - 1) === -1 ? v.length : v.indexOf("\n", en - 1);
+        const block = v.slice(ls, le);
+        const out = block.split("\n").map((l) => e.shiftKey ? l.replace(/^ {1,4}/, "") : "    " + l).join("\n");
+        ta.setRangeText(out, ls, le, "select");
+      } else if (e.shiftKey) {
+        const line = v.slice(ls, s); const m = line.match(/^ {1,4}/);
+        if (m) { ta.setRangeText("", ls, ls + m[0].length, "end"); ta.selectionStart = ta.selectionEnd = Math.max(ls, s - m[0].length); }
+      } else {
+        ta.setRangeText("    ", s, en, "end");
+      }
+      ta.dispatchEvent(new Event("input"));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      const line = v.slice(ls, s);
+      let indent = (line.match(/^ */) || [""])[0];
+      const t = line.trimEnd();
+      if (/[:{\[(]$/.test(t)) indent += "    ";
+      ta.setRangeText("\n" + indent, s, en, "end");
+      ta.dispatchEvent(new Event("input"));
+    } else if (e.key === "Backspace" && s === en) {
+      const ls = v.lastIndexOf("\n", s - 1) + 1;
+      const before = v.slice(ls, s);
+      if (before.length && /^ +$/.test(before) && before.length % 4 === 0) { e.preventDefault(); ta.setRangeText("", s - 4, s, "end"); ta.dispatchEvent(new Event("input")); }
+    }
+  });
+  langSel.addEventListener("change", () => {
+    lang = langSel.value; LS.set("pad.lang", lang); loadCode(); updateApi(); lastResults = null; renderTests(null);
+    $("#status").textContent = lang === "java" ? "Java can't run in the browser. Write here, run locally with javac." : "Press Run to run the tests for the parts you've unlocked.";
+    $("#status").className = "status";
+  });
+  function updateApi() { $("#api1").innerHTML = API1[lang]; $("#api3").innerHTML = API3[lang]; }
+  let resetArmed = false, resetTimer = null;
+  $("#resetcode").addEventListener("click", () => {
+    if (!resetArmed) { resetArmed = true; $("#resetcode").textContent = "Really reset?"; resetTimer = setTimeout(() => { resetArmed = false; $("#resetcode").textContent = "Reset code"; }, 3000); return; }
+    clearTimeout(resetTimer); resetArmed = false; $("#resetcode").textContent = "Reset code";
+    ta.value = STARTERS[lang]; LS.set(codeKey(), ta.value); render();
+  });
+  loadCode(); updateApi();
+
+  // ---------- Timer ----------
+  const TOTAL = 45 * 60; let left = TOTAL, ticking = null;
+  function fmt(s) { const m = Math.floor(Math.abs(s) / 60), ss = Math.abs(s) % 60; return (s < 0 ? "-" : "") + String(m).padStart(2, "0") + ":" + String(ss).padStart(2, "0"); }
+  function paintTimer() { $("#tdisp").textContent = fmt(left); $("#timer").classList.toggle("low", left <= 300 && left > 0); $("#timer").classList.toggle("over", left <= 0); }
+  $("#tstart").addEventListener("click", () => {
+    if (ticking) { clearInterval(ticking); ticking = null; $("#tstart").textContent = "Resume"; return; }
+    ticking = setInterval(() => { left -= 1; paintTimer(); }, 1000); $("#tstart").textContent = "Pause";
+  });
+  $("#treset").addEventListener("click", () => { clearInterval(ticking); ticking = null; left = TOTAL; paintTimer(); $("#tstart").textContent = "Start"; });
+
+  // ---------- Console ----------
+  const outEl = $("#out"), testsEl = $("#tests"), statusEl = $("#status");
+  $("#cb-tests").addEventListener("click", () => showConsole("tests"));
+  $("#cb-out").addEventListener("click", () => showConsole("out"));
+  function showConsole(which) {
+    $("#cb-tests").setAttribute("aria-selected", which === "tests"); $("#cb-out").setAttribute("aria-selected", which === "out");
+    testsEl.classList.toggle("hid", which !== "tests"); outEl.classList.toggle("hid", which !== "out");
+  }
+  const TEST_NAMES = {
+    1: ["empty watchlist displays nothing", "single watch with extension filter", "two disjoint watches, remove one, remove both", "watch on a path that doesn't exist is a no-op"],
+    2: ["overlapping watches: removing one keeps shared files (ref counting)", "display() returns a copy; caller can't corrupt the cache", "display() does not re-walk the tree (hot path)"],
+    3: ["file added under two live watches, then one watch removed", "file removed while watched; unwatched file added is ignored"]
+  };
+  let lastResults = null; // {name: {ok, msg}}
+  function renderTests(results) {
+    testsEl.innerHTML = "";
+    [1, 2, 3].forEach((p) => {
+      const g = document.createElement("div"); g.className = "tgroup";
+      const unlocked = maxPart >= p;
+      g.innerHTML = `<div class="gh">Part ${p}${unlocked ? "" : " · locked"}</div>`;
+      TEST_NAMES[p].forEach((n) => {
+        const r = results && results[n];
+        const row = document.createElement("div");
+        const cls = !unlocked ? "locked" : !r ? "wait" : r.ok ? "pass" : "fail";
+        row.className = "trow " + cls;
+        row.innerHTML = `<span class="ic">${!unlocked ? "·" : !r ? "○" : r.ok ? "✓" : "✗"}</span><span>${n}${r && !r.ok ? `<div class="msg"></div>` : ""}</span>`;
+        if (r && !r.ok) row.querySelector(".msg").textContent = r.msg;
+        g.append(row);
+      });
+      testsEl.append(g);
+    });
+  }
+  renderTests(null); applyParts();
+
+  function setOut(lines, isErr) {
+    outEl.innerHTML = "";
+    if (!lines.length) { outEl.innerHTML = '<span class="dim">(no output)</span>'; return; }
+    const s = document.createElement("span"); if (isErr) s.className = "err"; s.textContent = lines.join(""); outEl.append(s);
+  }
+  function parseResults(logLines) {
+    const results = {}; const other = []; let errored = false;
+    for (const line of logLines) {
+      const m = line.match(/^(PASS|FAIL)\|(\d)\|([^|\n]*)(?:\|([\s\S]*))?$/);
+      if (m) results[m[3]] = { ok: m[1] === "PASS", msg: (m[4] || "").trim() };
+      else { if (line.startsWith("__PAD_ERROR__")) errored = true; else other.push(line); }
+    }
+    return { results, other, errored };
+  }
+  function finish(logLines) {
+    const { results, other, errored } = parseResults(logLines);
+    lastResults = Object.keys(results).length ? results : null;
+    renderTests(lastResults);
+    setOut(other.map((l) => l + (l.endsWith("\n") ? "" : "\n")), errored);
+    const names = [1, 2, 3].filter((p) => p <= maxPart).flatMap((p) => TEST_NAMES[p]);
+    const passed = names.filter((n) => results[n] && results[n].ok).length;
+    if (errored) { statusEl.textContent = "Your code raised before the tests ran. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else if (!lastResults) { statusEl.textContent = "No test results came back. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else { statusEl.textContent = `${passed}/${names.length} passed (parts 1–${maxPart})`; statusEl.className = "status " + (passed === names.length ? "ok" : "bad"); showConsole("tests"); }
+  }
+
+  // ---------- Runners ----------
+  function runJS(src) {
+    const logs = []; const fakeConsole = { log: (...a) => logs.push(a.map(String).join(" ") + "\n"), error: (...a) => logs.push(a.map(String).join(" ") + "\n"), warn: (...a) => logs.push(a.map(String).join(" ") + "\n") };
+    const harness = txt("harness-javascript").replace("__MAX_PART__", String(Math.min(maxPart, 3)));
+    let fn;
+    try { fn = new Function("console", src + "\n" + harness); }
+    catch (e) { finish(["__PAD_ERROR__", "SyntaxError: " + e.message + "\n"]); return; }
+    try { fn(fakeConsole); } catch (e) { logs.push("__PAD_ERROR__"); logs.push((e && e.stack) ? e.stack + "\n" : String(e) + "\n"); }
+    finish(logs.map((l) => l.replace(/\n$/, "")));
+  }
+
+  let brythonState = "none"; // none | loading | ready | failed
+  function loadScript(url) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = url; s.onload = res; s.onerror = () => rej(new Error("failed to load " + url)); document.head.append(s); }); }
+  async function ensureBrython() {
+    if (brythonState === "ready") return true;
+    if (brythonState === "failed") return false;
+    brythonState = "loading";
+    statusEl.textContent = "Loading the Python runtime (first run only, a few seconds)…"; statusEl.className = "status";
+    try {
+      await loadScript("https://cdn.jsdelivr.net/npm/brython@3.12.4/brython.min.js");
+      await loadScript("https://cdn.jsdelivr.net/npm/brython@3.12.4/brython_stdlib.js");
+      window.brython({ debug: 0, indexedDB: false });
+      brythonState = "ready"; return true;
+    } catch (e) { brythonState = "failed"; return false; }
+  }
+  async function runPython(src) {
+    const ok = await ensureBrython();
+    if (!ok) { finish(["__PAD_ERROR__", "The in-browser Python runtime couldn't load here (network or content policy). Check your connection and press Run again, or switch the language to JavaScript.\n"]); return; }
+    const logs = []; let buf = "";
+    window.__pad_out = (s) => { buf += s; let i; while ((i = buf.indexOf("\n")) !== -1) { logs.push(buf.slice(0, i)); buf = buf.slice(i + 1); } };
+    window.__pad_src = src; window.__pad_harness = txt("harness-python"); window.__pad_max_part = Math.min(maxPart, 3);
+    try {
+      window.__BRYTHON__.runPythonSource(txt("runner-python"), { name: "__main__" });
+    } catch (e) {
+      logs.push("__PAD_ERROR__");
+      let msg = String(e);
+      try { if (e.__class__ && e.args) msg = e.__class__.$infos.__name__ + ": " + Array.from(e.args).join(" "); } catch (_) {}
+      logs.push(msg);
+    }
+    if (buf) logs.push(buf);
+    finish(logs);
+  }
+  let running = false;
+  async function runCode() {
+    if (running) return; running = true; $("#run").disabled = true;
+    const src = ta.value;
+    try {
+      if (lang === "javascript") runJS(src);
+      else if (lang === "python") await runPython(src);
+      else { statusEl.textContent = "Java can't run in the browser. Download Watchlist.java from the chat and run: javac Watchlist.java && java Watchlist"; statusEl.className = "status"; }
+    } finally { running = false; $("#run").disabled = false; }
+  }
+  $("#run").addEventListener("click", runCode);
+})();
+</script>
+
+</body>
+</html>
