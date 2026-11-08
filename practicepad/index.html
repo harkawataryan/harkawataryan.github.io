@@ -194,7 +194,7 @@ select.lang{font:inherit;color:var(--fg);background:var(--panel-2);border:1px so
     <select class="lang" id="lang" aria-label="Language">
       <option value="python">Python 3</option>
       <option value="javascript">JavaScript</option>
-      <option value="java">Java 8</option>
+      <option value="java">Java 21</option>
     </select>
     <div class="spacer"></div>
     <div class="timer" id="timer" title="Phone screens run 45–60 min. One problem.">
@@ -590,8 +590,9 @@ class Watchlist {
 </script>
 
 <script type="text/plain" id="starter-java">// Jane Street R1 practice — "Watchlist" (Java)
-// Runs in your browser on a Java 8 JVM: no var, no List.of. The first Run downloads
-// the JVM and javac (about 20 MB), so give it 20-30 seconds; later runs are quick.
+// Runs in your browser on a real Java 21 JDK (var, records, List.of, switch
+// expressions all work). The first Run downloads the JDK, so give it 20-40 seconds;
+// later runs are quick.
 import java.util.*;
 
 public class Watchlist {
@@ -1290,7 +1291,7 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
   });
   langSel.addEventListener("change", () => {
     lang = langSel.value; LS.set("pad.lang", lang); loadCode(); updateApi(); lastResults = null; renderTests(null);
-    $("#status").textContent = lang === "java" ? "Java 8 runs in the browser. The first Run downloads the JVM (about 20 MB)." : "Press Run to run the tests for the parts you've unlocked.";
+    $("#status").textContent = lang === "java" ? "Java 21 runs in the browser. The first Run downloads the JDK, so give it 20–40 seconds." : "Press Run to run the tests for the parts you've unlocked.";
     $("#status").className = "status";
   });
   function updateApi() { $("#api1").innerHTML = API1[lang]; $("#api3").innerHTML = API3[lang]; }
@@ -1416,11 +1417,10 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     finish(logs);
   }
 
-  // ---------- Java (CheerpJ: a JVM in WebAssembly, with Java 8 javac from tools.jar) ----------
+  // ---------- Java (CheerpJ 5: a Java 21 JDK in WebAssembly, using its own javac) ----------
   let javaState = "none"; // none | loading | ready | failed
   let javaRuntimeReady = null;
-  const TOOLS_JAR = "/app" + new URL("tools.jar", location.href).pathname;
-  const CP = TOOLS_JAR + ":/files/";
+  const CP = "/files/";
   function jconsole() {
     let el = document.getElementById("console");
     if (!el) { el = document.createElement("pre"); el.id = "console"; el.hidden = true; document.body.append(el); }
@@ -1444,10 +1444,10 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     javaState = "loading";
     javaRuntimeReady = (async () => {
       try {
-        statusEl.textContent = "Starting the Java runtime (first run downloads about 20 MB)…"; statusEl.className = "status";
+        statusEl.textContent = "Starting Java 21 (first run downloads the JDK)…"; statusEl.className = "status";
         jconsole();
         await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js");
-        await withTimeout(window.cheerpjInit({ status: "none" }), 90000, "JVM start");
+        await withTimeout(window.cheerpjInit({ version: 21, status: "none" }), 90000, "JVM start");
         statusEl.textContent = "Warming up javac (first run only)…";
         putFile("/str/PadRunner.java", txt("runner-java"));
         const r = await withTimeout(javac(["/str/PadRunner.java"], "/files/"), 150000, "javac warm-up");
