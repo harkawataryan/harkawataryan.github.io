@@ -194,7 +194,7 @@ select.lang{font:inherit;color:var(--fg);background:var(--panel-2);border:1px so
     <select class="lang" id="lang" aria-label="Language">
       <option value="python">Python 3</option>
       <option value="javascript">JavaScript</option>
-      <option value="java">Java (editor only)</option>
+      <option value="java">Java 8</option>
     </select>
     <div class="spacer"></div>
     <div class="timer" id="timer" title="Phone screens run 45–60 min. One problem.">
@@ -590,8 +590,8 @@ class Watchlist {
 </script>
 
 <script type="text/plain" id="starter-java">// Jane Street R1 practice — "Watchlist" (Java)
-// The pad can't run Java in the browser. Use it as your pad, then run locally:
-//   javac Watchlist.java && java Watchlist        (download Watchlist.java from the chat)
+// Runs in your browser on a Java 8 JVM: no var, no List.of. The first Run downloads
+// the JVM and javac (about 20 MB), so give it 20-30 seconds; later runs are quick.
 import java.util.*;
 
 public class Watchlist {
@@ -851,6 +851,112 @@ else:
     catch (e) { const nm = e && e.name && e.name !== "Error" ? e.name + ": " : ""; console.log("FAIL|" + part + "|" + name + "|" + nm + ((e && e.message) || e)); }
   }
 })();
+</script>
+
+<script type="text/plain" id="harness-java">import java.util.*;
+
+// Test harness for the pad. Prints PASS|part|name or FAIL|part|name|message per test.
+public class WatchlistTests {
+    static class SpyTree extends Watchlist.FileTree {
+        int walks = 0; boolean counting = false;
+        @Override List<Watchlist.Node> iterFiles(Watchlist.Node node) { if (counting) walks++; return super.iterFiles(node); }
+    }
+    interface Test { void run() throws Exception; }
+
+    static <T extends Watchlist.FileTree> T fill(T t) {
+        for (String p : new String[]{"/src/main.py", "/src/util.py", "/src/README.md", "/src/net/sock.py",
+                                     "/src/net/sock_test.py", "/docs/guide.md", "/docs/img/logo.png"}) t.addFile(p);
+        return t;
+    }
+    static Watchlist.FileTree build() { return fill(new Watchlist.FileTree()); }
+    static List<String> L(String... xs) { return Arrays.asList(xs); }
+    static void check(Object actual, Object expected, String label) {
+        if (!Objects.equals(actual, expected)) throw new AssertionError(label + "\n   expected " + expected + "\n   got      " + actual);
+    }
+    static void yes(boolean c, String msg) { if (!c) throw new AssertionError(msg); }
+
+    public static void main(String[] args) {
+        int maxPart = args.length > 0 ? Integer.parseInt(args[0]) : 3;
+        LinkedHashMap<String, Test> tests = new LinkedHashMap<>();
+        tests.put("1|empty watchlist displays nothing", () -> {
+            Watchlist w = new Watchlist(build()); check(w.display(), L(), "display() on fresh watchlist"); });
+        tests.put("1|single watch with extension filter", () -> {
+            Watchlist w = new Watchlist(build()); w.addWatch("/src", ".py");
+            check(w.display(), L("/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"), "display after addWatch(\"/src\", \".py\")"); });
+        tests.put("1|two disjoint watches, remove one, remove both", () -> {
+            Watchlist w = new Watchlist(build()); int a = w.addWatch("/src", ".py"); int b = w.addWatch("/docs", null);
+            check(w.display(), L("/docs/guide.md", "/docs/img/logo.png", "/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py"), "both watches");
+            w.removeWatch(a); check(w.display(), L("/docs/guide.md", "/docs/img/logo.png"), "after removing /src watch");
+            w.removeWatch(b); check(w.display(), L(), "after removing both"); });
+        tests.put("1|watch on a path that doesn't exist is a no-op", () -> {
+            Watchlist w = new Watchlist(build()); int x = w.addWatch("/nope", null); check(w.display(), L(), "missing root");
+            w.removeWatch(x); check(w.display(), L(), "after removing missing-root watch"); });
+        tests.put("2|overlapping watches: removing one keeps shared files (ref counting)", () -> {
+            Watchlist w = new Watchlist(build()); int a = w.addWatch("/src", null); int b = w.addWatch("/src/net", ".py");
+            List<String> all = L("/src/README.md", "/src/main.py", "/src/net/sock.py", "/src/net/sock_test.py", "/src/util.py");
+            check(w.display(), all, "both watches");
+            w.removeWatch(b); check(w.display(), all, "net files still covered by the /src watch");
+            w.removeWatch(a); check(w.display(), L(), "nothing left"); });
+        tests.put("2|display() returns a copy; caller can't corrupt the cache", () -> {
+            Watchlist w = new Watchlist(build()); w.addWatch("/docs", null);
+            try { w.display().add("/garbage"); } catch (UnsupportedOperationException ok) { /* read-only view is fine too */ }
+            check(w.display(), L("/docs/guide.md", "/docs/img/logo.png"), "cache untouched"); });
+        tests.put("2|display() does not re-walk the tree (hot path)", () -> {
+            SpyTree t = fill(new SpyTree()); Watchlist w = new Watchlist(t); w.addWatch("/src", null);
+            t.counting = true;
+            for (int i = 0; i < 1000; i++) w.display();
+            if (t.walks != 0) throw new AssertionError("display() called iterFiles " + t.walks + " times across 1000 calls; it should be served from a cache"); });
+        tests.put("3|file added under two live watches, then one watch removed", () -> {
+            Watchlist.FileTree t = build(); Watchlist w = new Watchlist(t); int a = w.addWatch("/src", ".py"); w.addWatch("/src/net", null);
+            t.addFile("/src/net/new.py"); w.onFileAdded("/src/net/new.py");
+            yes(w.display().contains("/src/net/new.py"), "new file should be displayed");
+            w.removeWatch(a);
+            yes(w.display().contains("/src/net/new.py"), "new file still covered by /src/net watch");
+            yes(!w.display().contains("/src/main.py"), "/src/main.py should be gone after removing the /src watch"); });
+        tests.put("3|file removed while watched; unwatched file added is ignored", () -> {
+            Watchlist.FileTree t = build(); Watchlist w = new Watchlist(t); w.addWatch("/src/net", null);
+            t.addFile("/src/net/new.py"); w.onFileAdded("/src/net/new.py");
+            w.onFileRemoved("/src/net/new.py"); t.removeFile("/src/net/new.py");
+            check(w.display(), L("/src/net/sock.py", "/src/net/sock_test.py"), "after remove");
+            t.addFile("/src/other.txt"); w.onFileAdded("/src/other.txt");
+            check(w.display(), L("/src/net/sock.py", "/src/net/sock_test.py"), "uncovered file ignored"); });
+
+        for (Map.Entry<String, Test> e : tests.entrySet()) {
+            int part = e.getKey().charAt(0) - '0';
+            if (part > maxPart) continue;
+            try { e.getValue().run(); System.out.println("PASS|" + e.getKey()); }
+            catch (AssertionError ex) { System.out.println("FAIL|" + e.getKey() + "|" + ex.getMessage()); }
+            catch (Throwable ex) { System.out.println("FAIL|" + e.getKey() + "|" + ex.getClass().getSimpleName() + ": " + ex.getMessage()); }
+        }
+    }
+}
+</script>
+
+<script type="text/plain" id="runner-java">import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+
+// Loads each run's freshly compiled classes in a new class loader, so a rerun never sees stale code.
+public class PadRunner {
+    public static void main(String[] args) throws Exception {
+        if (args[0].equals("--mkdir")) { new File(args[1]).mkdirs(); return; }
+        URLClassLoader loader = new URLClassLoader(new URL[]{ new File(args[0]).toURI().toURL() }, PadRunner.class.getClassLoader());
+        try {
+            Method main = loader.loadClass("WatchlistTests").getMethod("main", String[].class);
+            main.invoke(null, (Object) new String[]{ args[1] });
+        } catch (InvocationTargetException e) {
+            System.out.println("__PAD_ERROR__");
+            e.getCause().printStackTrace(System.out);
+        } catch (Throwable e) {
+            System.out.println("__PAD_ERROR__");
+            e.printStackTrace(System.out);
+        }
+        System.out.println("__PAD_DONE__");
+        System.out.flush();
+    }
+}
 </script>
 
 <!-- ======= SOLUTION ======= -->
@@ -1184,7 +1290,7 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
   });
   langSel.addEventListener("change", () => {
     lang = langSel.value; LS.set("pad.lang", lang); loadCode(); updateApi(); lastResults = null; renderTests(null);
-    $("#status").textContent = lang === "java" ? "Java can't run in the browser. Write here, run locally with javac." : "Press Run to run the tests for the parts you've unlocked.";
+    $("#status").textContent = lang === "java" ? "Java 8 runs in the browser. The first Run downloads the JVM (about 20 MB)." : "Press Run to run the tests for the parts you've unlocked.";
     $("#status").className = "status";
   });
   function updateApi() { $("#api1").innerHTML = API1[lang]; $("#api3").innerHTML = API3[lang]; }
@@ -1254,14 +1360,15 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     }
     return { results, other, errored };
   }
-  function finish(logLines) {
+  function finish(logLines, opts) {
     const { results, other, errored } = parseResults(logLines);
     lastResults = Object.keys(results).length ? results : null;
     renderTests(lastResults);
     setOut(other.map((l) => l + (l.endsWith("\n") ? "" : "\n")), errored);
     const names = [1, 2, 3].filter((p) => p <= maxPart).flatMap((p) => TEST_NAMES[p]);
     const passed = names.filter((n) => results[n] && results[n].ok).length;
-    if (errored) { statusEl.textContent = "Your code raised before the tests ran. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    if (opts && opts.compileError) { statusEl.textContent = "Compile error. See Output."; statusEl.className = "status bad"; showConsole("out"); }
+    else if (errored) { statusEl.textContent = "Your code raised before the tests ran. See Output."; statusEl.className = "status bad"; showConsole("out"); }
     else if (!lastResults) { statusEl.textContent = "No test results came back. See Output."; statusEl.className = "status bad"; showConsole("out"); }
     else { statusEl.textContent = `${passed}/${names.length} passed (parts 1–${maxPart})`; statusEl.className = "status " + (passed === names.length ? "ok" : "bad"); showConsole("tests"); }
   }
@@ -1308,6 +1415,66 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     if (buf) logs.push(buf);
     finish(logs);
   }
+
+  // ---------- Java (CheerpJ: a JVM in WebAssembly, with Java 8 javac from tools.jar) ----------
+  let javaState = "none"; // none | loading | ready | failed
+  let javaRuntimeReady = null;
+  const TOOLS_JAR = "/app" + new URL("tools.jar", location.href).pathname;
+  const CP = TOOLS_JAR + ":/files/";
+  function jconsole() {
+    let el = document.getElementById("console");
+    if (!el) { el = document.createElement("pre"); el.id = "console"; el.hidden = true; document.body.append(el); }
+    return el;
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function putFile(path, text) { window.cheerpjAddStringFile(path, new TextEncoder().encode(text)); }
+  async function javac(sources, outDir) {
+    const con = jconsole(); con.textContent = "";
+    const code = await window.cheerpjRunMain("com.sun.tools.javac.Main", CP, ...sources, "-d", outDir, "-encoding", "UTF-8", "-nowarn");
+    await sleep(60);
+    return { code, log: con.textContent };
+  }
+  async function ensureJava() {
+    if (javaState === "ready") return true;
+    if (javaState === "failed") return false;
+    if (javaRuntimeReady) return javaRuntimeReady;
+    javaState = "loading";
+    javaRuntimeReady = (async () => {
+      try {
+        statusEl.textContent = "Starting the Java runtime (first run downloads about 20 MB)…"; statusEl.className = "status";
+        jconsole();
+        await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js");
+        await window.cheerpjInit({ status: "none" });
+        statusEl.textContent = "Warming up javac (first run only)…";
+        putFile("/str/PadRunner.java", txt("runner-java"));
+        const r = await javac(["/str/PadRunner.java"], "/files/");
+        if (r.code !== 0) throw new Error("runner failed to compile:\n" + r.log);
+        javaState = "ready"; return true;
+      } catch (e) { console.error(e); javaState = "failed"; javaRuntimeReady = null; return false; }
+    })();
+    return javaRuntimeReady;
+  }
+  async function runJava(src) {
+    const ok = await ensureJava();
+    if (!ok) { javaState = "none"; finish(["__PAD_ERROR__", "The in-browser Java runtime couldn't start (network, or a browser without WebAssembly). Check your connection and press Run again.\n"]); return; }
+    statusEl.textContent = "Compiling…"; statusEl.className = "status";
+    const dir = "/files/run" + Date.now() + "/";
+    await window.cheerpjRunMain("PadRunner", CP, "--mkdir", dir);
+    putFile("/str/Watchlist.java", src);
+    putFile("/str/WatchlistTests.java", txt("harness-java"));
+    const c = await javac(["/str/Watchlist.java", "/str/WatchlistTests.java"], dir);
+    if (c.code !== 0) {
+      const log = c.log.replace(/\/str\//g, "") || "javac exited with code " + c.code + "\n";
+      finish(log.split("\n"), { compileError: true }); return;
+    }
+    statusEl.textContent = "Running tests…";
+    const con = jconsole(); con.textContent = "";
+    await window.cheerpjRunMain("PadRunner", CP, dir, String(Math.min(maxPart, 3)));
+    for (let i = 0; i < 50 && !con.textContent.includes("__PAD_DONE__"); i++) await sleep(60);
+    const lines = con.textContent.split("\n").filter((l) => l !== "__PAD_DONE__");
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    finish(lines);
+  }
   let running = false;
   async function runCode() {
     if (running) return; running = true; $("#run").disabled = true;
@@ -1315,7 +1482,7 @@ void onFileRemoved(String path)    <span class="c">// called right before tree.r
     try {
       if (lang === "javascript") runJS(src);
       else if (lang === "python") await runPython(src);
-      else { statusEl.textContent = "Java can't run in the browser. Download Watchlist.java from the chat and run: javac Watchlist.java && java Watchlist"; statusEl.className = "status"; }
+      else await runJava(src);
     } finally { running = false; $("#run").disabled = false; }
   }
   $("#run").addEventListener("click", runCode);
