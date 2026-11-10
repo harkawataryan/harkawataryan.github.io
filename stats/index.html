@@ -839,11 +839,15 @@ button, input { font: inherit; color: inherit; }
     return null;
   }
 
-  // Live visits first, then whatever the archive has from before the live log started.
+  // Live visits, plus every archived visit the live log doesn't have: all
+  // of history from before it started, and anything GoatCounter caught while
+  // the live server was down or asleep. The two logs give one visit
+  // different ids, so an archived visit counts as the same one when a live
+  // visit from the same place started within three minutes of it.
   function merge() {
     const lv = live ? live.visits : [];
-    const liveStart = lv.length ? Math.min.apply(null, lv.map((v) => v.t)) : Infinity;
-    visits = lv.concat((archive || []).filter((v) => v.t < liveStart));
+    const seenLive = (a) => lv.some((v) => Math.abs(v.t - a.t) < 180e3 && (!a.loc || !v.loc || a.loc === v.loc));
+    visits = lv.concat((archive || []).filter((v) => !seenLive(v))).sort((a, b) => b.t - a.t);
     visits.updated = live ? live.updated : (archive && archive.updated);
     if (liveOk()) useLive(); else if (data) renderVisits();
     renderLiveStatus();

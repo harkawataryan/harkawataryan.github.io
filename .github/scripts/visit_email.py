@@ -170,18 +170,24 @@ def summarize(rows):
 
 
 def live_server_emails():
-    """True if the live server answers that it's sending visit emails itself.
-    The free Render instance can take most of a minute to wake, so the
-    timeout is generous."""
+    """When the live server is emailing visits itself, the time it started
+    recording them. Visits from before then only GoatCounter saw, so this
+    job still emails those. None means this job emails everything. The free
+    Render instance can take most of a minute to wake, so the timeout is
+    generous."""
     url = os.environ.get("LIVE_STATUS_URL")
     if not url:
-        return False
+        return None
     try:
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "aryanh-visit-email"}), timeout=90) as r:
-            return bool(json.loads(r.read()).get("email"))
+            status = json.loads(r.read())
     except Exception as e:  # down or unreachable: this job sends instead
         print(f"live server check failed ({e}); sending emails from here")
-        return False
+        return None
+    if not status.get("email"):
+        return None
+    since = status.get("since")
+    return datetime.fromisoformat(since.replace("Z", "+00:00")) if since else datetime.min.replace(tzinfo=timezone.utc)
 
 
 def send(subject, body):
@@ -300,9 +306,9 @@ def main():
     prev_run = datetime.fromisoformat(state["last_run"]) if state.get("last_run") else now - timedelta(minutes=70)
     email_after = prev_run - SETTLE
 
-    live = live_server_emails()
-    if live:
-        print("live server is emailing visits; this run only updates the log")
+    live_since = live_server_emails()
+    if live_since:
+        print(f"live server is emailing visits since {live_since:%Y-%m-%d %H:%M} UTC; emailing only older ones from here")
 
     sessions = OrderedDict()
     held_ids = {r["Session"] for r in state["held"]}
@@ -324,8 +330,9 @@ def main():
             continue  # don't email the whole history the first time
         if backfill and latest < email_after and sid not in held_ids:
             continue  # already emailed by an earlier run
-        if live:
-            continue
+        started = datetime.fromisoformat(rows_[0]["Date"].replace("Z", "+00:00"))
+        if live_since and started >= live_since:
+            continue  # the live server saw and emailed this one
         send(*summarize(rows_))
         sent += 1
 
