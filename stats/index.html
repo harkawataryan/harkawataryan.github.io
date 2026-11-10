@@ -216,6 +216,7 @@ button, input { font: inherit; color: inherit; }
       <input id="vSearch" type="search" placeholder="Search place, referrer, browser, clicks" aria-label="Search visits">
       <button class="ghost" id="vCsv">Export CSV</button>
     </div>
+    <div class="vmsg" id="vLive" hidden></div>
     <div class="vmsg" id="vMsg">Loading visits…</div>
     <table class="vtable" id="vTable" hidden>
       <thead><tr><th>When</th><th>Where</th><th>From</th><th>Device</th><th>Reached</th><th>Stayed</th><th>Clicked</th></tr></thead>
@@ -690,6 +691,14 @@ button, input { font: inherit; color: inherit; }
   // key derived from its GoatCounter token, on the repo's visit-data branch.
   const VISITS_URL = 'https://raw.githubusercontent.com/harkawataryan/harkawataryan.github.io/visit-data/visits.enc';
   const VKEY = 'gc-visit-key';
+  // Live log: the site beacons every hit to the Concertify server, which
+  // serves them back here behind its VISITS_TOKEN. Polled while the page is
+  // open. The encrypted hourly log above fills in history from before the
+  // live log existed.
+  const LIVE_API = 'https://concertify-cm6k.onrender.com/api/visits';
+  const LKEY = 'live-visits-token';
+  const LIVE_POLL = 30e3;
+  let live = null, archive = null, livePoll = null, liveError = null;
   const US = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'Washington DC', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming' };
   let regionNames = null;
   try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) {}
@@ -737,26 +746,90 @@ button, input { font: inherit; color: inherit; }
     });
   }
 
+  async function fetchLive() {
+    const lt = store.get(LKEY);
+    if (!lt) return null;
+    const res = await fetch(LIVE_API + '?limit=2000', { headers: { Authorization: 'Bearer ' + lt }, cache: 'no-store' });
+    if (res.status === 401) { store.del(LKEY); throw new Error('token rejected'); }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    return { visits: j.visits.map(shape), updated: Date.parse(j.updated) };
+  }
+
+  // Returns the decrypted archive, or null if the key is missing (askKey shows the form).
+  async function fetchArchive(retryWith) {
+    const res = await fetch(VISITS_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+    if (res.status === 404) return [];
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const box = await res.json();
+    for (const secret of [retryWith, store.get(VKEY), token].filter(Boolean)) {
+      try { const list = await decrypt(box, secret); if (secret !== token) store.set(VKEY, secret); const out = list.map(shape); out.updated = box.updated; return out; } catch (e) {}
+    }
+    return null;
+  }
+
+  // Live visits first, then whatever the archive has from before the live log started.
+  function merge() {
+    const lv = live ? live.visits : [];
+    const liveStart = lv.length ? Math.min.apply(null, lv.map((v) => v.t)) : Infinity;
+    visits = lv.concat((archive || []).filter((v) => v.t < liveStart));
+    visits.updated = live ? live.updated : (archive && archive.updated);
+    renderVisits();
+    renderLiveStatus();
+  }
+
+  function renderLiveStatus() {
+    const el = $('#vLive');
+    el.hidden = false;
+    if (!store.get(LKEY)) {
+      el.innerHTML = (liveError === 'token rejected' ? 'That token was rejected. ' : 'Visits here update hourly from GoatCounter. ') + 'Add the Concertify server\'s VISITS_TOKEN to see them live.<form id="vLiveForm"><input id="vLiveKey" type="password" placeholder="VISITS_TOKEN" autocomplete="off"><button class="btn">Go live</button></form>';
+      $('#vLiveForm').addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const k = $('#vLiveKey').value.trim();
+        if (!k) return;
+        store.set(LKEY, k);
+        el.textContent = 'Connecting…';
+        refreshLive(true);
+      });
+      return;
+    }
+    if (liveError) { el.textContent = 'Live log unavailable (' + liveError + '). Showing the hourly log.'; return; }
+    const n = live ? live.visits.length : 0;
+    el.textContent = 'Live · ' + n + ' visit' + (n === 1 ? '' : 's') + ' in the last 90 days · updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(live ? live.updated : Date.now()).toLowerCase() + ' · checks every 30s';
+  }
+
+  async function refreshLive(first) {
+    try {
+      const l = await fetchLive();
+      liveError = null;
+      if (l) live = l;
+    } catch (e) {
+      liveError = e.message;
+      if (e.message === 'token rejected') live = null;
+    }
+    if (!first || visits) merge();
+  }
+
+  function startLivePoll() {
+    clearInterval(livePoll);
+    livePoll = setInterval(() => { if (document.visibilityState === 'visible') refreshLive(); }, LIVE_POLL);
+  }
+
   async function loadVisits(retryWith) {
     const msg = $('#vMsg');
     try {
-      const res = await fetch(VISITS_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
-      if (res.status === 404) { visits = []; msg.textContent = 'No visit log yet. The visit emailer creates it on its next hourly run.'; msg.hidden = false; $('#vTable').hidden = true; return; }
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const box = await res.json();
-      let list = null;
-      for (const secret of [retryWith, store.get(VKEY), token].filter(Boolean)) {
-        try { list = await decrypt(box, secret); if (secret !== token) store.set(VKEY, secret); break; } catch (e) {}
-      }
-      if (!list) return askKey();
-      visits = list.map(shape);
-      visits.updated = box.updated;
-      renderVisits();
+      const [a] = await Promise.all([fetchArchive(retryWith), refreshLive(true)]);
+      if (!a) return askKey();
+      archive = a;
+      merge();
+      startLivePoll();
+      if (!visits.length) { msg.hidden = false; msg.textContent = store.get(LKEY) ? 'No visits logged yet.' : 'No visit log yet. The visit emailer creates it on its next hourly run.'; $('#vTable').hidden = true; }
     } catch (e) {
       msg.hidden = false;
       msg.textContent = 'Could not load the visit log: ' + e.message;
     }
   }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token && store.get(LKEY)) refreshLive(); });
 
   // The log is locked with the emailer's token. If the dashboard was signed
   // into with a different one, ask for it once.
@@ -894,6 +967,9 @@ button, input { font: inherit; color: inherit; }
   function signOut(msg) {
     store.del(KEY);
     store.del(VKEY);
+    store.del(LKEY);
+    clearInterval(livePoll);
+    live = null; archive = null; liveError = null;
     visits = null;
     token = null;
     data = null;

@@ -177,8 +177,24 @@
   window.addEventListener('resize', () => requestAnimationFrame(onScroll));
   onScroll();
 
+  // Every page view and event also goes to the live visit log on the
+  // Concertify server, which the /stats/ dashboard reads within seconds.
+  // Sent as text/plain so sendBeacon needs no preflight. Skipped when the
+  // dashboard has flagged this browser as the owner's.
+  const VISITS_API = 'https://concertify-cm6k.onrender.com/api/visits/hit';
+  function beacon(path, event) {
+    try {
+      if (localStorage.getItem('skipgc')) return;
+      const body = JSON.stringify({ p: path, e: !!event, ref: document.referrer, w: screen.width });
+      if (navigator.sendBeacon) navigator.sendBeacon(VISITS_API, new Blob([body], { type: 'text/plain' }));
+      else fetch(VISITS_API, { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+    } catch (e) {}
+  }
+  beacon(location.pathname, false);
+
   // GoatCounter custom events. No-ops when the counter is blocked.
   function track(path) {
+    beacon(path, true);
     if (!window.goatcounter || !window.goatcounter.count) return;
     window.goatcounter.count({ path: path, title: path, event: true });
   }
