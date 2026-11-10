@@ -844,8 +844,20 @@ button, input { font: inherit; color: inherit; }
   // the live server was down or asleep. The two logs give one visit
   // different ids, so an archived visit counts as the same one when a live
   // visit from the same place started within three minutes of it.
+  // A live visit whose location lookup failed takes the location GoatCounter
+  // recorded for the same visit: closest start within three minutes, same
+  // screen width when both logs have one.
+  function fillLoc(v) {
+    if (v.loc || !archive) return v;
+    let best = null;
+    for (const a of archive) {
+      if (!a.loc || Math.abs(a.t - v.t) >= 180e3 || (a.width && v.width && a.width !== v.width)) continue;
+      if (!best || Math.abs(a.t - v.t) < Math.abs(best.t - v.t)) best = a;
+    }
+    return best ? shape(Object.assign({}, v, { loc: best.loc, locFrom: 'GoatCounter' })) : v;
+  }
   function merge() {
-    const lv = live ? live.visits : [];
+    const lv = live ? live.visits.map(fillLoc) : [];
     const seenLive = (a) => lv.some((v) => Math.abs(v.t - a.t) < 180e3 && (!a.loc || !v.loc || a.loc === v.loc));
     visits = lv.concat((archive || []).filter((v) => !seenLive(v))).sort((a, b) => b.t - a.t);
     visits.updated = live ? live.updated : (archive && archive.updated);
@@ -1002,7 +1014,7 @@ button, input { font: inherit; color: inherit; }
     const dl = el('dl');
     const add = (k, val) => { dl.append(el('dt', '', k), el('dd', '', val)); };
     add('Started', fmt({ weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(v.t));
-    add('Location', v.place + (v.loc ? ` (${v.loc})` : ''));
+    add('Location', v.place + (v.loc ? ` (${v.loc})` : '') + (v.locFrom ? ` · from ${v.locFrom}` : ''));
     add('Referrer', v.ref || 'Direct, typed or bookmarked');
     add('Browser', v.browser || 'Unknown');
     add('System', v.system || 'Unknown');
