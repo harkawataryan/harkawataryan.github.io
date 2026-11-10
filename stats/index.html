@@ -876,13 +876,26 @@ button, input { font: inherit; color: inherit; }
     }
   }
 
+  // A blocked or failed request looks the same to the page whether the
+  // server is down or just missing the visits endpoints (they only exist
+  // when VISITS_TOKEN is set, and a 404 carries no CORS headers). An opaque
+  // no-cors request to /health tells the two apart.
+  async function whyUnreachable() {
+    try {
+      await fetch(LIVE_API.replace(/\/api\/visits$/, '/health'), { mode: 'no-cors', cache: 'no-store' });
+      return 'the server is up but the live log is off: set VISITS_TOKEN on Render and redeploy';
+    } catch (e) {
+      return 'server unreachable';
+    }
+  }
+
   async function refreshLive(first) {
     try {
       const l = await fetchLive();
       liveError = null;
       if (l) live = l;
     } catch (e) {
-      liveError = e.message === 'token rejected' ? e.message : e instanceof TypeError ? 'server unreachable' : e.message;
+      liveError = e.message === 'token rejected' ? e.message : e instanceof TypeError ? await whyUnreachable() : e.message;
       if (e.message === 'token rejected') live = null;
     }
     if (!first || visits) merge();
