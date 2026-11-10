@@ -1,8 +1,10 @@
-name: Email visit summaries
+name: Visit log backup
 
-# Started hourly by cron-job.org through the workflow_dispatch API, since
-# GitHub's own schedule skipped most hours. GoatCounter allows one export
-# per hour, so keep it to one trigger.
+# Backup for the live visit log on the Concertify server. Started hourly by
+# cron-job.org through the workflow_dispatch API, since GitHub's own schedule
+# skipped most hours. GoatCounter allows one export per hour, so keep it to
+# one trigger. Emails only go out from here when the live server says it
+# isn't sending them.
 on:
   workflow_dispatch:
 
@@ -41,6 +43,7 @@ jobs:
         env:
           GOATCOUNTER_TOKEN: ${{ secrets.GOATCOUNTER_TOKEN }}
           VISITS_FILE: visits.enc
+          LIVE_STATUS_URL: https://concertify-cm6k.onrender.com/api/visits/status
           NOTIFY_TO: harkawat.aryan@gmail.com
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}

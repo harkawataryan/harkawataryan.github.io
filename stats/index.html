@@ -162,7 +162,7 @@ button, input { font: inherit; color: inherit; }
 <div class="gate" id="gate" hidden>
   <form id="signin" autocomplete="off">
     <h1>Analytics</h1>
-    <input id="token" type="password" placeholder="GoatCounter API token" aria-label="GoatCounter API token" spellcheck="false" required>
+    <input id="token" type="password" placeholder="Visits token or GoatCounter API token" aria-label="Visits token or GoatCounter API token" spellcheck="false" required>
     <button class="btn" type="submit">Continue</button>
     <p class="err" id="gateErr" role="alert"></p>
   </form>
@@ -421,12 +421,14 @@ button, input { font: inherit; color: inherit; }
   }
 
   async function load(force) {
+    if (liveOk()) { useLive(); return; }
+    if (!token) { status(store.get(LKEY) ? 'Connecting to the live log…' : ''); return; }
     const my = ++gen;
     const r = range;
     const cached = cache[r];
     const fresh = cached && !force && Date.now() - cached.fetched < FRESH;
     if (cached) { data = cached; render(); }
-    if (fresh) { status(updatedLbl(cached.fetched)); prefetch(); return; }
+    if (fresh) { status(gcLbl(cached.fetched)); prefetch(); return; }
     document.body.classList.add('loading');
     status(cached ? 'Refreshing…' : 'Loading…');
     try {
@@ -438,7 +440,7 @@ button, input { font: inherit; color: inherit; }
       });
       if (my !== gen) return;
       data = d; render();
-      status(updatedLbl(d.now));
+      status(gcLbl(d.now));
       prefetch();
     } catch (e) {
       if (e.auth) return signOut('That token was rejected.');
@@ -448,9 +450,11 @@ button, input { font: inherit; color: inherit; }
     }
   }
   const updatedLbl = (t) => 'Updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(t).toLowerCase();
+  const gcLbl = (t) => (store.get(LKEY) ? 'GoatCounter backup · ' : '') + updatedLbl(t);
 
   // Warm the other ranges in the background, nearest to the current one first.
   function prefetch() {
+    if (liveOk()) return;
     const keys = Object.keys(RANGES);
     const i = keys.indexOf(range);
     const order = keys.map((k, j) => [Math.abs(j - i), k]).sort((a, b) => a[0] - b[0]).map((x) => x[1]).filter((k) => k !== range);
@@ -579,7 +583,7 @@ button, input { font: inherit; color: inherit; }
         ul.append(li);
       }
     }
-    const partial = data.unit === 'hour';
+    const partial = data.unit === 'hour' && !data.live;
     for (const n of $$('.day-note')) n.textContent = partial ? 'GoatCounter breaks these down by whole day, so they can include visits from earlier in the day.' : '';
     activity();
   }
@@ -696,6 +700,66 @@ button, input { font: inherit; color: inherit; }
   // open. The encrypted hourly log above fills in history from before the
   // live log existed.
   const LIVE_API = 'https://concertify-cm6k.onrender.com/api/visits';
+  const liveOk = () => !!(live && !liveError);
+
+  // Builds the same shape the GoatCounter API returns from the visit list,
+  // so the charts and lists render unchanged. Counts follow GoatCounter's
+  // rules: a page or event counts once per visit, in the hour it first
+  // happened, and the breakdowns count visits.
+  let tzParts = null, tzFor = null;
+  function partsOf(t) {
+    if (tzFor !== tz) { tzFor = tz; tzParts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }); }
+    const p = Object.fromEntries(tzParts.formatToParts(t).map((x) => [x.type, x.value]));
+    return { day: `${p.year}-${p.month}-${p.day}`, hour: +p.hour % 24 };
+  }
+  function liveData(r) {
+    const w = window_(r);
+    const paths = new Map(), total = new Map();
+    const bump = (m, key, t) => {
+      const { day, hour } = partsOf(t);
+      if (!m.has(key)) m.set(key, new Map());
+      const days = m.get(key);
+      if (!days.has(day)) days.set(day, new Array(24).fill(0));
+      days.get(day)[hour]++;
+    };
+    const tally = { refs: new Map(), countries: new Map(), states: new Map(), devices: new Map(), browsers: new Map(), systems: new Map() };
+    const add = (k, id, name) => { const m = tally[k]; const e = m.get(id) || { id, name, count: 0 }; e.count++; m.set(id, e); };
+    for (const v of visits || []) {
+      if (v.t > w.now) continue;
+      const seen = new Set();
+      for (const h of v.hits) {
+        const key = (h.e ? 'e:' : 'p:') + h.p;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bump(paths, key, Date.parse(h.t));
+      }
+      bump(total, 'all', v.t);
+      if (v.t < w.start) continue;
+      let host = '';
+      try { host = v.ref ? new URL(v.ref).hostname.replace(/^www\./, '') : ''; } catch (e) { host = v.ref || ''; }
+      add('refs', host, host);
+      const [c, rg] = (v.loc || '').split('-');
+      let cname = c || 'Unknown';
+      try { cname = (c && regionNames && regionNames.of(c)) || cname; } catch (e) {}
+      add('countries', c || '', cname);
+      if (c === 'US') add('states', v.loc, US[rg] || 'Unknown');
+      add('devices', v.device, v.device);
+      add('browsers', (v.browser || '').replace(/\s+[\d.]+$/, ''), (v.browser || '').replace(/\s+[\d.]+$/, ''));
+      add('systems', v.system || '', v.system || '');
+    }
+    const stats = (days) => [...days].map(([day, hourly]) => ({ day, hourly }));
+    const hits = [...paths].map(([key, days]) => ({ path: key.slice(2), event: key[0] === 'e', stats: stats(days) }));
+    const lists = {};
+    for (const k in tally) lists[k] = [...tally[k].values()].sort((a, b) => b.count - a.count);
+    return { start: w.start, now: w.now, unit: w.unit, total: { stats: total.has('all') ? stats(total.get('all')) : [] }, hits: { hits }, lists, fetched: w.now, partial: false, live: true };
+  }
+  function useLive() {
+    gen++; // drop any GoatCounter load still in flight
+    data = liveData(range);
+    render();
+    status('Live · ' + updatedLbl(live.updated).toLowerCase());
+    document.body.classList.remove('loading');
+  }
   const LKEY = 'live-visits-token';
   const LIVE_POLL = 30e3;
   let live = null, archive = null, livePoll = null, liveError = null;
@@ -749,11 +813,18 @@ button, input { font: inherit; color: inherit; }
   async function fetchLive() {
     const lt = store.get(LKEY);
     if (!lt) return null;
-    const res = await fetch(LIVE_API + '?limit=2000', { headers: { Authorization: 'Bearer ' + lt }, cache: 'no-store' });
+    // After the first load, ask only for visits active since the last poll
+    // (with a two-minute overlap) and merge them in by id.
+    const since = live ? live.updated - 120e3 : 0;
+    const res = await fetch(LIVE_API + (since ? '?since=' + since : ''), { headers: { Authorization: 'Bearer ' + lt }, cache: 'no-store' });
     if (res.status === 401) { store.del(LKEY); throw new Error('token rejected'); }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const j = await res.json();
-    return { visits: j.visits.map(shape), updated: Date.parse(j.updated) };
+    const fresh = j.visits.map(shape);
+    if (!live) return { visits: fresh, updated: Date.parse(j.updated) };
+    const byId = new Map(live.visits.map((v) => [v.id, v]));
+    for (const v of fresh) byId.set(v.id, v);
+    return { visits: [...byId.values()].sort((a, b) => b.t - a.t), updated: Date.parse(j.updated) };
   }
 
   // Returns the decrypted archive, or null if the key is missing (askKey shows the form).
@@ -774,7 +845,7 @@ button, input { font: inherit; color: inherit; }
     const liveStart = lv.length ? Math.min.apply(null, lv.map((v) => v.t)) : Infinity;
     visits = lv.concat((archive || []).filter((v) => v.t < liveStart));
     visits.updated = live ? live.updated : (archive && archive.updated);
-    renderVisits();
+    if (liveOk()) useLive(); else if (data) renderVisits();
     renderLiveStatus();
   }
 
@@ -793,9 +864,16 @@ button, input { font: inherit; color: inherit; }
       });
       return;
     }
-    if (liveError) { el.textContent = 'Live log unavailable (' + liveError + '). Showing the hourly log.'; return; }
-    const n = live ? live.visits.length : 0;
-    el.textContent = 'Live · ' + n + ' visit' + (n === 1 ? '' : 's') + ' in the last 90 days · updated ' + fmt({ hour: 'numeric', minute: '2-digit' }).format(live ? live.updated : Date.now()).toLowerCase() + ' · checks every 30s';
+    if (liveError) { el.textContent = 'Live log unavailable (' + liveError + '). ' + (token ? 'Showing GoatCounter and the hourly log as a backup.' : 'Add a GoatCounter token at sign-in to have a backup.'); return; }
+    if (!live) { el.textContent = 'Connecting to the live log. A sleeping server can take up to a minute to wake.'; return; }
+    const now = live.visits.filter((v) => !v.section && Date.now() - Date.parse(v.end) < 5 * 60e3).length;
+    el.textContent = 'Live · updates every 30 seconds' + (now ? ' · ' + now + (now === 1 ? ' person' : ' people') + ' on the site now' : '');
+    if (archive === null) {
+      const b = document.createElement('button');
+      b.className = 'ghost'; b.style.marginLeft = '10px'; b.textContent = 'Unlock older history';
+      b.addEventListener('click', askKey);
+      el.append(b);
+    }
   }
 
   async function refreshLive(first) {
@@ -804,7 +882,7 @@ button, input { font: inherit; color: inherit; }
       liveError = null;
       if (l) live = l;
     } catch (e) {
-      liveError = e.message;
+      liveError = e.message === 'token rejected' ? e.message : e instanceof TypeError ? 'server unreachable' : e.message;
       if (e.message === 'token rejected') live = null;
     }
     if (!first || visits) merge();
@@ -819,10 +897,11 @@ button, input { font: inherit; color: inherit; }
     const msg = $('#vMsg');
     try {
       const [a] = await Promise.all([fetchArchive(retryWith), refreshLive(true)]);
-      if (!a) return askKey();
+      if (!a && !liveOk()) return askKey();
       archive = a;
       merge();
       startLivePoll();
+      if (!liveOk() && !token) { msg.hidden = false; msg.textContent = 'Waiting for the live log.'; }
       if (!visits.length) { msg.hidden = false; msg.textContent = store.get(LKEY) ? 'No visits logged yet.' : 'No visit log yet. The visit emailer creates it on its next hourly run.'; $('#vTable').hidden = true; }
     } catch (e) {
       msg.hidden = false;
@@ -982,7 +1061,7 @@ button, input { font: inherit; color: inherit; }
     show(true);
     // Keep the owner's own visits to aryanh.dev out of GoatCounter.
     store.set('skipgc', 't');
-    try {
+    if (token) try {
       const me = await api('/me');
       const z = me.user && me.user.settings && me.user.settings.timezone;
       if (z) tz = z.replace(/^[A-Z]{2}\./, '');
@@ -999,14 +1078,24 @@ button, input { font: inherit; color: inherit; }
     const btn = $('button', ev.target);
     btn.disabled = true;
     $('#gateErr').textContent = '';
-    token = $('#token').value.trim();
+    const value = $('#token').value.trim();
     try {
+      $('#gateErr').textContent = 'Checking…';
+      const res = await fetch(LIVE_API + '/?limit=1', { headers: { Authorization: 'Bearer ' + value }, cache: 'no-store' }).catch(() => null);
+      if (res && res.ok) {
+        store.set(LKEY, value);
+        $('#gateErr').textContent = '';
+        start();
+        return;
+      }
+      token = value;
       await api('/me');
       store.set(KEY, token);
+      $('#gateErr').textContent = '';
       start();
     } catch (e) {
       token = null;
-      $('#gateErr').textContent = e.auth ? 'That token was rejected.' : 'Could not reach GoatCounter. An ad or tracker blocker is the usual cause; turn it off for this site.';
+      $('#gateErr').textContent = e.auth ? 'That token was rejected by both the live log and GoatCounter.' : 'Could not reach GoatCounter. An ad or tracker blocker is the usual cause; turn it off for this site.';
     } finally {
       btn.disabled = false;
     }
@@ -1033,7 +1122,7 @@ button, input { font: inherit; color: inherit; }
   let rz;
   window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => data && chart(pts), 150); });
 
-  if (token) start();
+  if (token || store.get(LKEY)) start();
   else show(false);
 })();
 </script>

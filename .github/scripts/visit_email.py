@@ -1,6 +1,12 @@
-"""Emails a short summary of each new visit to aryanh.dev.
+"""Backup for the live visit log on the Concertify server.
 
-Runs hourly from GitHub Actions. GoatCounter allows one export an hour, so
+The server emails each visit to aryanh.dev about 90 seconds after it ends.
+This job runs hourly from GitHub Actions as a backup: it keeps the encrypted
+GoatCounter-based visit log up to date, and it only sends emails itself when
+the live server reports that it isn't emailing (down, asleep past the
+timeout, or not configured). LIVE_STATUS_URL points at that check.
+
+GoatCounter allows one export an hour, so
 each run exports every page view and event since the last run, groups them
 by session, and sends one email per visit. Visits whose last hit is under
 ten minutes old are held until the next run so a visit that straddles the
@@ -163,6 +169,21 @@ def summarize(rows):
     return subject, "\n".join(lines) + "\n"
 
 
+def live_server_emails():
+    """True if the live server answers that it's sending visit emails itself.
+    The free Render instance can take most of a minute to wake, so the
+    timeout is generous."""
+    url = os.environ.get("LIVE_STATUS_URL")
+    if not url:
+        return False
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "aryanh-visit-email"}), timeout=90) as r:
+            return bool(json.loads(r.read()).get("email"))
+    except Exception as e:  # down or unreachable: this job sends instead
+        print(f"live server check failed ({e}); sending emails from here")
+        return False
+
+
 def send(subject, body):
     if os.environ.get("DRY_RUN"):
         print("=" * 60, "\nSubject:", subject, "\n" + body)
@@ -279,6 +300,10 @@ def main():
     prev_run = datetime.fromisoformat(state["last_run"]) if state.get("last_run") else now - timedelta(minutes=70)
     email_after = prev_run - SETTLE
 
+    live = live_server_emails()
+    if live:
+        print("live server is emailing visits; this run only updates the log")
+
     sessions = OrderedDict()
     held_ids = {r["Session"] for r in state["held"]}
     for r in (rows if backfill else state["held"] + rows):
@@ -299,6 +324,8 @@ def main():
             continue  # don't email the whole history the first time
         if backfill and latest < email_after and sid not in held_ids:
             continue  # already emailed by an earlier run
+        if live:
+            continue
         send(*summarize(rows_))
         sent += 1
 
