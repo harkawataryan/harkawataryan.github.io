@@ -854,7 +854,29 @@ button, input { font: inherit; color: inherit; }
       if (!a.loc || Math.abs(a.t - v.t) >= 180e3 || (a.width && v.width && a.width !== v.width)) continue;
       if (!best || Math.abs(a.t - v.t) < Math.abs(best.t - v.t)) best = a;
     }
-    return best ? shape(Object.assign({}, v, { loc: best.loc, locFrom: 'GoatCounter' })) : v;
+    if (!best) return v;
+    const filled = shape(Object.assign({}, v, { loc: best.loc, locFrom: 'goatcounter' }));
+    saveLoc(filled);
+    return filled;
+  }
+  // Writes a filled-in location back to the live log, once per visit, so
+  // the log itself is corrected and later loads don't need GoatCounter.
+  const savedLoc = new Set();
+  function saveLoc(v) {
+    const lt = store.get(LKEY);
+    if (!lt || savedLoc.has(v.id)) return;
+    savedLoc.add(v.id);
+    fetch(LIVE_API + '/' + encodeURIComponent(v.id), {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + lt, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loc: v.loc }),
+    }).then((res) => {
+      if (!res.ok && res.status !== 409) { savedLoc.delete(v.id); return; }
+      // Keep the corrected copy so later polls (which only return recent
+      // visits) don't bring back the unknown one.
+      const i = live ? live.visits.findIndex((x) => x.id === v.id) : -1;
+      if (i >= 0) live.visits[i] = v;
+    }).catch(() => savedLoc.delete(v.id));
   }
   function merge() {
     const lv = live ? live.visits.map(fillLoc) : [];
@@ -1014,7 +1036,7 @@ button, input { font: inherit; color: inherit; }
     const dl = el('dl');
     const add = (k, val) => { dl.append(el('dt', '', k), el('dd', '', val)); };
     add('Started', fmt({ weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(v.t));
-    add('Location', v.place + (v.loc ? ` (${v.loc})` : '') + (v.locFrom ? ` · from ${v.locFrom}` : ''));
+    add('Location', v.place + (v.loc ? ` (${v.loc})` : '') + (v.locFrom ? ' · from GoatCounter' : ''));
     add('Referrer', v.ref || 'Direct, typed or bookmarked');
     add('Browser', v.browser || 'Unknown');
     add('System', v.system || 'Unknown');
