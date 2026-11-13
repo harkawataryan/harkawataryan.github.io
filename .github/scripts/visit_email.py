@@ -35,6 +35,7 @@ import os
 import smtplib
 import sys
 import time
+import urllib.error
 import urllib.request
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
@@ -299,7 +300,19 @@ def main():
         # export rows carry no hit ids.
         rows, last = export_since(None)
     else:
-        rows, last = export_since(state["last_hit_id"])
+        try:
+            rows, last = export_since(state["last_hit_id"])
+        except urllib.error.HTTPError as e:
+            # GoatCounter turns down the export now and then (a 404 about once
+            # a day). Nothing is lost: the next run picks up from the same hit.
+            # Only fail if it keeps happening, so a real breakage still shows.
+            misses = state.get("misses", 0) + 1
+            print(f"GoatCounter export failed ({e.code}), skipping this run ({misses} in a row)")
+            if misses >= 3:
+                raise
+            state["misses"] = misses
+            json.dump(state, open(STATE_FILE, "w"))
+            return
     first_run = state["last_hit_id"] is None and not os.environ.get("EXPORT_CSV")
 
     now = datetime.now(timezone.utc)
