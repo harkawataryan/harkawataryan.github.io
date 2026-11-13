@@ -629,25 +629,96 @@ def generic(P):
     )
 
 
+# ---------------------------------------------------------------------
+# run-only pad: no tests, problems in priority order
+# ---------------------------------------------------------------------
+def bank_starters(title):
+    py = (f"# {title}\n# Ctrl/Cmd + Enter runs this file. Whatever you print shows up in Output.\n\n\n"
+          "def main():\n    pass\n\n\nif __name__ == \"__main__\":\n    main()\n")
+    js = (f"// {title}\n// Ctrl/Cmd + Enter runs this file. console.log output shows up in Output.\n\n\n"
+          "function main() {\n}\n\nmain();\n")
+    java = (f"// {title}\n// Runs in your browser on a real Java 21 JDK. The first Run downloads the JDK,\n"
+            "// so give it 20-40 seconds; later runs are quick.\nimport java.util.*;\n\npublic class Solution {\n\n"
+            "    public static void main(String[] args) {\n    }\n}\n")
+    return {"python": py, "javascript": js, "java": java}
+
+
+def _fix(s, fixes):
+    for old, new in fixes:
+        s = s.replace(old, new)
+    return s
+
+
+def run_only(p):
+    """Turn a tested problem into a run-only one: drop the harness, give the starter a main."""
+    st = dict(p["starters"])
+    for lang in st:
+        s = st[lang]
+        for old, new in (("Ctrl/Cmd + Enter runs the tests for every part you've unlocked.", "Ctrl/Cmd + Enter runs this file."),
+                         ("Run: Ctrl/Cmd + Enter. Tests run for every part you've unlocked.", "Run: Ctrl/Cmd + Enter runs this file."),
+                         ("Tests run for every part you've unlocked.", "")):
+            s = s.replace(old, new)
+        st[lang] = s
+    st["python"] = st["python"].rstrip() + "\n\n\nif __name__ == \"__main__\":\n    # Try your functions here; Run prints whatever you print.\n    pass\n"
+    st["javascript"] = st["javascript"].rstrip() + "\n\n// Try your functions here; Run executes this file.\n"
+    j = st["java"].rstrip()
+    assert j.endswith("}"), p["id"]
+    st["java"] = j[:-1].rstrip() + ("\n\n    public static void main(String[] args) {\n"
+                                     "        // Try your code here; Run prints whatever you print.\n    }\n}\n")
+    out = {k: p[k] for k in ("id", "title", "tagline", "source", "intro", "parts", "clarify", "nudges", "solution", "fnames", "javaClass")}
+    out["intro"] = out["intro"].replace("the tests use", "the examples use")
+    fixes = (("That's what the tests here do.", ""),
+             ("Each test checks equivalence on 25 random memories (values −50…50) and has a length target that a careful optimizer reaches. Literals in tests are small, so folded constants never overflow 32 bits.",
+              "Check yours for equivalence on random memories (values −50…50). Literals are small, so folded constants never overflow 32 bits."),
+             ("All Part 1 tests must still pass.", "Everything from Part 1 must still work."),
+             ("The tests check that", "Make sure that"))
+    out["parts"] = [dict(pt, body=_fix(pt["body"], fixes)) for pt in out["parts"]]
+    out["solution"] = _fix(out["solution"], fixes)
+    out["starters"] = st
+    return out
+
+
 def main():
-    data = {"problems": [watchlist()] + [generic(P) for P in problems.ALL],
-            "runnerJava": LEGACY["runner-java"]}
+    import bank_a, bank_b, bank_c
+    legacy = {P["id"]: run_only(generic(P)) for P in problems.ALL}
+    legacy["watchlist"] = run_only(watchlist())
+
+    def bank(ps):
+        out = []
+        for p in ps:
+            d = dict(p, fnames={}, javaClass="Solution", starters=bank_starters(p["title"]))
+            out.append(d)
+        return out
+
+    fold = dict(legacy["fold"], source=legacy["fold"]["source"] + " Reported 10 times in round one, the most of any question.")
+    groups = [
+        ("Most reported: do these first", [fold] + bank(bank_a.TIER1)),
+        ("Reported onsite", bank(bank_a.TIER2)),
+        ("Other reported questions", bank(bank_b.TIER3)),
+        ("Earlier pad problems (reported variants)", [legacy[k] for k in ("watchlist", "stack", "accum", "towers", "wizard", "loadout", "dice")]),
+        ("Experimental onsite formats", bank(bank_c.TIER4)),
+        ("Unverified reports", bank(bank_c.TIER5)),
+    ]
+    probs = []
+    for label, ps in groups:
+        for p in ps:
+            p["group"] = label
+            probs.append(p)
+    ids = [p["id"] for p in probs]
+    assert len(ids) == len(set(ids)), "duplicate ids"
+    data = {"problems": probs}
     blob = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     page = (HERE / "template.html").read_text().replace("/*__PAD_DATA__*/", blob).replace("/*__LEGACY_CSS__*/", LEGACY["css"])
     OUT.write_text(page)
-    # also emit harness files for local verification
     gen_dir = HERE / "_gen"
     gen_dir.mkdir(exist_ok=True)
-    for p in data["problems"]:
+    for p in probs:
         d = gen_dir / p["id"]
         d.mkdir(exist_ok=True)
-        (d / "harness.py").write_text(p["harness"]["python"])
-        (d / "harness.js").write_text(p["harness"]["javascript"])
-        (d / f'{p["javaTestClass"]}.java').write_text(p["harness"]["java"])
         (d / "starter.py").write_text(p["starters"]["python"])
         (d / "starter.js").write_text(p["starters"]["javascript"])
         (d / f'{p["javaClass"]}.java').write_text(p["starters"]["java"])
-    print(f"wrote {OUT} ({len(page):,} bytes), {len(data['problems'])} problems")
+    print(f"wrote {OUT} ({len(page):,} bytes), {len(probs)} problems")
 
 
 if __name__ == "__main__":

@@ -17,16 +17,15 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
 .trow.skip{color:var(--faint)}
 .trow.skip .ic{color:var(--faint)}
 .status.busy{color:var(--info)}
-.problist{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
-.problist button{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);color:var(--muted)}
-.problist button[aria-current="true"]{color:var(--accent-ink);background:var(--accent);border-color:transparent}
-.problist button:hover{color:var(--fg)}
+.probnav{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
+.probnav .grp{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+select.picker{max-width:22rem}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="dot"></span>PracticePad <small>Jane Street SWE Intern · Round 1</small></div>
+    <div class="brand"><span class="dot"></span>PracticePad <small>Jane Street SWE Intern · Question bank, in priority order</small></div>
     <select class="picker" id="problem" aria-label="Problem"></select>
     <select class="lang" id="lang" aria-label="Language">
       <option value="python">Python 3</option>
@@ -40,7 +39,7 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
       <button class="btn sm ghost" id="treset" title="Reset timer">↺</button>
     </div>
     <button class="btn sm ghost" id="resetcode" title="Restore the starter code for this problem and language">Reset code</button>
-    <button class="btn primary" id="run" title="Ctrl/Cmd + Enter">▶ Run</button>
+    <button class="btn primary" id="run" title="Ctrl/Cmd + Enter runs your code">▶ Run</button>
   </header>
 
   <div class="main">
@@ -146,12 +145,10 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
       </div>
       <div class="console">
         <div class="bar">
-          <button class="ctab-btn" id="cb-tests" aria-selected="true">Tests</button>
-          <button class="ctab-btn" id="cb-out" aria-selected="false">Output</button>
-          <span class="status" id="status">Press Run to run the tests for the parts you've unlocked.</span>
+          <button class="ctab-btn" id="cb-out" aria-selected="true">Output</button>
+          <span class="status" id="status">Press Run to run your code.</span>
         </div>
-        <div class="tests" id="tests"></div>
-        <div class="out hid" id="out"><span class="dim">Nothing yet.</span></div>
+        <div class="out" id="out"><span class="dim">Nothing yet.</span></div>
       </div>
     </section>
   </div>
@@ -173,7 +170,7 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
   const HL_LANG = { python: "python", javascript: "javascript", java: "java" };
   const RS = "\x1e";
   const PYODIDE_URL = new URL(new URLSearchParams(location.search).get("pyodide") || "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/", location.href).href;
-  const PER_TEST_TIMEOUT = 15000, LOAD_TIMEOUT = 120000;
+  const LOAD_TIMEOUT = 120000;
 
   const CHECKS = [
     "Restated the problem in my own words and worked a tiny example before coding",
@@ -193,7 +190,6 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
   let lang = LS.get("pad2.lang", LS.get("pad.lang", "python"));
   if (!["python", "javascript", "java"].includes(lang)) lang = "python";
   let maxPart = 1;
-  let lastResults = null;
   const key = (k) => "pad2." + P.id + "." + k;
 
   // one-time migration of the original single-problem pad
@@ -210,7 +206,13 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
 
   // ---------- problem picker ----------
   const picker = $("#problem");
-  PROBLEMS.forEach((p, i) => { const o = document.createElement("option"); o.value = p.id; o.textContent = (i + 1) + " · " + p.title; picker.append(o); });
+  (function buildPicker() {
+    let group = null, og = null;
+    PROBLEMS.forEach((p, i) => {
+      if (p.group !== group) { group = p.group; og = document.createElement("optgroup"); og.label = group; picker.append(og); }
+      const o = document.createElement("option"); o.value = p.id; o.textContent = (i + 1) + " · " + p.title; og.append(o);
+    });
+  })();
   picker.addEventListener("change", () => selectProblem(picker.value));
   window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (BY_ID[id] && (!P || P.id !== id)) selectProblem(id); });
 
@@ -224,8 +226,10 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
   function renderQuestion() {
     const q = $("#tab-q");
     const nCode = P.parts.filter((p) => !p.discussion).length;
-    let html = '<div class="problist" role="list">' + PROBLEMS.map((p) => `<button role="listitem" data-pick="${p.id}" aria-current="${p.id === P.id}">${escHtml(p.title)}</button>`).join("") + "</div>";
-    html += `<h2>${escHtml(P.title)}</h2><div class="meta">${escHtml(P.tagline)}. ${nCode} coding parts and a discussion part; each part unlocks when you're done with the last. Budget: 45 minutes.</div>`;
+    const idx = PROBLEMS.indexOf(P), prev = PROBLEMS[idx - 1], next = PROBLEMS[idx + 1];
+    let html = `<div class="probnav"><button class="btn sm ghost" data-pick="${prev ? prev.id : ""}" ${prev ? "" : "disabled"}>← Prev</button><span class="grp">#${idx + 1} of ${PROBLEMS.length} · ${escHtml(P.group)}</span><button class="btn sm ghost" data-pick="${next ? next.id : ""}" ${next ? "" : "disabled"}>Next →</button></div>`;
+    const nTalk = P.parts.length - nCode;
+    html += `<h2>${escHtml(P.title)}</h2><div class="meta">${escHtml(P.tagline)}. ${nCode} coding part${nCode === 1 ? "" : "s"}${nTalk ? " and a discussion part" : ""}; open each part when you're done with the last. Budget: 45 minutes.</div>`;
     html += `<div class="source">${escHtml(P.source)}</div>`;
     html += P.intro;
     P.parts.forEach((part, idx) => {
@@ -238,12 +242,12 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
     });
     q.innerHTML = html;
     q.querySelectorAll("[data-unlock]").forEach((b) => b.addEventListener("click", () => {
-      maxPart = Math.max(maxPart, +b.dataset.unlock); LS.set(key("maxPart"), maxPart); renderQuestion(); renderTests(lastResults);
+      maxPart = Math.max(maxPart, +b.dataset.unlock); LS.set(key("maxPart"), maxPart); renderQuestion();
     }));
-    q.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => selectProblem(b.dataset.pick)));
+    q.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => { if (b.dataset.pick) selectProblem(b.dataset.pick); }));
   }
   function revealList(container, items, render) {
-    container.innerHTML = "";
+    container.innerHTML = items.length ? "" : '<p class="meta">None recorded for this question.</p>';
     items.forEach((it, i) => {
       const d = document.createElement("div"); d.className = "reveal";
       const b = document.createElement("button");
@@ -339,9 +343,9 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
     }
   });
   langSel.addEventListener("change", () => {
-    lang = langSel.value; LS.set("pad2.lang", lang); loadCode(); renderQuestion(); lastResults = null; renderTests(null);
+    lang = langSel.value; LS.set("pad2.lang", lang); loadCode(); renderQuestion();
     statusEl.textContent = lang === "java" ? "Java 21 runs in the browser. The first Run downloads the JDK, so give it 20–40 seconds."
-      : lang === "python" ? "Python runs in your browser. The first Run downloads it (a few seconds)." : "Press Run to run the tests for the parts you've unlocked.";
+      : lang === "python" ? "Python runs in your browser. The first Run downloads it (a few seconds)." : "Press Run to run your code.";
     statusEl.className = "status";
   });
   let resetArmed = false, resetTimer = null;
@@ -362,77 +366,28 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
   $("#treset").addEventListener("click", () => { clearInterval(ticking); ticking = null; left = TOTAL; paintTimer(); $("#tstart").textContent = "Start"; });
 
   // ---------- console ----------
-  const outEl = $("#out"), testsEl = $("#tests"), statusEl = $("#status");
-  $("#cb-tests").addEventListener("click", () => showConsole("tests"));
-  $("#cb-out").addEventListener("click", () => showConsole("out"));
-  function showConsole(which) {
-    $("#cb-tests").setAttribute("aria-selected", which === "tests"); $("#cb-out").setAttribute("aria-selected", which === "out");
-    testsEl.classList.toggle("hid", which !== "tests"); outEl.classList.toggle("hid", which !== "out");
-  }
-  function renderTests(results) {
-    testsEl.innerHTML = "";
-    [1, 2, 3].forEach((p) => {
-      const names = P.testNames[String(p)] || [];
-      if (!names.length) return;
-      const g = document.createElement("div"); g.className = "tgroup";
-      const unlocked = maxPart >= p;
-      g.innerHTML = `<div class="gh">Part ${p}${unlocked ? "" : " · locked"}</div>`;
-      names.forEach((n) => {
-        const r = results && results[p + "|" + n];
-        const row = document.createElement("div");
-        const cls = !unlocked ? "locked" : !r ? "wait" : r.skip ? "skip" : r.ok ? "pass" : "fail";
-        row.className = "trow " + cls;
-        const icon = !unlocked ? "·" : !r ? "○" : r.skip ? "–" : r.ok ? "✓" : "✗";
-        row.innerHTML = `<span class="ic">${icon}</span><span><span class="tname"></span>${r && (r.msg) ? '<div class="msg"></div>' : ""}</span>`;
-        row.querySelector(".tname").textContent = n;
-        if (r && r.msg) row.querySelector(".msg").textContent = r.msg;
-        g.append(row);
-      });
-      testsEl.append(g);
-    });
-  }
+  const outEl = $("#out"), statusEl = $("#status");
+  const RUN_TIMEOUT = 15000;
   function setOut(lines, cls) {
     outEl.innerHTML = "";
     if (!lines.length) { outEl.innerHTML = '<span class="dim">(no output)</span>'; return; }
     const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = lines.join("\n"); outEl.append(s);
   }
-  function parseResults(lines) {
-    const results = {}, other = []; let errored = false, current = null;
-    for (const raw of lines) {
-      const line = raw.replace(/\r$/, "");
-      let m;
-      if ((m = /^START\|(\d)\|(.*)$/.exec(line))) { current = m[1] + "|" + m[2]; continue; }
-      if ((m = /^(PASS|FAIL)\|(\d)\|([^|]*)(?:\|([\s\S]*))?$/.exec(line))) {
-        results[m[2] + "|" + m[3]] = { ok: m[1] === "PASS", msg: (m[4] || "").split(RS).join("\n").trim() };
-        current = null; continue;
-      }
-      if (line.startsWith("__PAD_ERROR__")) { errored = true; continue; }
-      other.push(line.split(RS).join("\n"));
-    }
-    return { results, other, errored, current };
-  }
   function finish(lines, opts) {
     opts = opts || {};
-    const { results, other, errored, current } = parseResults(lines);
-    if (opts.timedOut && current) {
-      results[current] = { ok: false, msg: `Timed out after ${PER_TEST_TIMEOUT / 1000} s. Infinite loop, or an approach that's too slow for this input size?` };
-    }
-    const names = [1, 2, 3].filter((p) => p <= maxPart).flatMap((p) => (P.testNames[String(p)] || []).map((n) => p + "|" + n));
-    if (opts.timedOut) names.forEach((k) => { if (!results[k]) results[k] = { ok: false, skip: true, msg: "not run (an earlier test timed out)" }; });
-    lastResults = Object.keys(results).length ? results : null;
-    renderTests(lastResults);
-    setOut(other, errored || opts.compileError ? "err" : "");
-    const passed = names.filter((k) => results[k] && results[k].ok).length;
-    if (opts.compileError) { statusEl.textContent = "Compile error. See Output."; statusEl.className = "status bad"; showConsole("out"); }
-    else if (errored) { statusEl.textContent = "Your code raised before the tests ran. See Output."; statusEl.className = "status bad"; showConsole("out"); }
-    else if (!lastResults) { statusEl.textContent = opts.message || "No test results came back. See Output."; statusEl.className = "status bad"; showConsole("out"); }
-    else {
-      statusEl.textContent = `${passed}/${names.length} passed (parts 1–${Math.min(maxPart, 3)})` + (opts.timedOut ? " · timed out" : "");
-      statusEl.className = "status " + (passed === names.length ? "ok" : "bad"); showConsole("tests");
-    }
+    const errIdx = lines.indexOf("__PAD_ERROR__");
+    const shown = lines.filter((l) => l !== "__PAD_ERROR__");
+    if (opts.timedOut) shown.push("", `Stopped after ${RUN_TIMEOUT / 1000} s. Infinite loop?`);
+    const bad = errIdx !== -1 || opts.compileError || opts.timedOut;
+    setOut(shown, bad ? "err" : "");
+    if (opts.compileError) { statusEl.textContent = "Compile error."; statusEl.className = "status bad"; }
+    else if (opts.timedOut) { statusEl.textContent = "Timed out."; statusEl.className = "status bad"; }
+    else if (errIdx !== -1) { statusEl.textContent = "Your code raised an error."; statusEl.className = "status bad"; }
+    else { statusEl.textContent = "Ran in " + ((performance.now() - runStarted) / 1000).toFixed(1) + " s."; statusEl.className = "status ok"; }
   }
+  let runStarted = 0;
 
-  // ---------- JS and Python run in a worker, so a runaway test can be stopped ----------
+  // ---------- JS and Python run in a worker, so a runaway program can be stopped ----------
   const WORKER_SRC = `
 let py = null;
 const RUNNER = ${JSON.stringify(`
@@ -447,10 +402,6 @@ except BaseException as __e:
     print("__PAD_ERROR__")
     __tb = [f for f in traceback.extract_tb(__e.__traceback__) if f.filename == "solution.py"]
     print("".join(traceback.format_list(__tb)) + "".join(traceback.format_exception_only(type(__e), __e)))
-else:
-    __h = {}
-    exec(__pad_harness, __h)
-    __h["__run_tests__"](__ns, __pad_max_part)
 `)};
 function fmt(v) { if (typeof v === "string") return v; try { const s = JSON.stringify(v); return s === undefined ? String(v) : s; } catch (e) { return String(v); } }
 self.onmessage = async (ev) => {
@@ -460,9 +411,8 @@ self.onmessage = async (ev) => {
     self.postMessage({ type: "ready" });
     const con = { log: (...a) => out(a.map(fmt).join(" ")), error: (...a) => out(a.map(fmt).join(" ")), warn: (...a) => out(a.map(fmt).join(" ")), info: (...a) => out(a.map(fmt).join(" ")) };
     let fn;
-    try { new Function(m.src); } catch (e) { out("__PAD_ERROR__"); out(String(e)); self.postMessage({ type: "done" }); return; }
-    try { fn = new Function("console", m.src + "\\n" + m.harness); } catch (e) { out("__PAD_ERROR__"); out(String(e)); self.postMessage({ type: "done" }); return; }
-    try { fn(con); } catch (e) {
+    try { fn = new Function("console", m.src); } catch (e) { out("__PAD_ERROR__"); out(String(e)); self.postMessage({ type: "done" }); return; }
+    try { const r = fn(con); if (r && typeof r.then === "function") await r; } catch (e) {
       out("__PAD_ERROR__");
       const mm = e && e.stack && /<anonymous>:(\\d+):(\\d+)/.exec(e.stack);
       out(String(e) + (mm && Number(mm[1]) - 2 >= 1 ? " (line " + (Number(mm[1]) - 2) + ")" : ""));
@@ -478,7 +428,7 @@ self.onmessage = async (ev) => {
     }
     self.postMessage({ type: "ready" });
     py.setStdout({ batched: out }); py.setStderr({ batched: out });
-    py.globals.set("__pad_src", m.src); py.globals.set("__pad_harness", m.harness); py.globals.set("__pad_max_part", m.maxPart);
+    py.globals.set("__pad_src", m.src);
     py.runPython(RUNNER);
   } catch (e) { out("__PAD_ERROR__"); out(String(e && e.message || e)); }
   self.postMessage({ type: "done" });
@@ -500,22 +450,21 @@ self.onmessage = async (ev) => {
       w.onmessage = (ev) => {
         const m = ev.data;
         if (m.type === "status") { statusEl.textContent = m.text; statusEl.className = "status busy"; }
-        else if (m.type === "ready") { ready = true; statusEl.textContent = "Running tests…"; statusEl.className = "status busy"; arm(PER_TEST_TIMEOUT); }
-        else if (m.type === "line") { lines.push(m.line); if (/^(START|PASS|FAIL)\|/.test(m.line)) arm(PER_TEST_TIMEOUT); }
+        else if (m.type === "ready") { ready = true; runStarted = performance.now(); statusEl.textContent = "Running…"; statusEl.className = "status busy"; arm(RUN_TIMEOUT); }
+        else if (m.type === "line") { lines.push(m.line); }
         else if (m.type === "done") { clearTimeout(timer); resolve({ lines, timedOut: false }); }
       };
       w.onerror = (e) => { clearTimeout(timer); e.preventDefault(); w.terminate(); if (worker === w) worker = null; resolve({ lines: lines.concat(["__PAD_ERROR__", "Runner crashed: " + (e.message || "unknown error")]), timedOut: false }); };
-      arm(payload.lang === "python" ? LOAD_TIMEOUT : PER_TEST_TIMEOUT);
+      arm(payload.lang === "python" ? LOAD_TIMEOUT : RUN_TIMEOUT);
       w.postMessage(payload);
     });
   }
   async function runJS(src) {
-    const harness = P.harness.javascript.replace("__MAX_PART__", String(Math.min(maxPart, 3))).replace("__USER_LINES__", String(src.split("\n").length));
-    const r = await runInWorker({ lang: "javascript", src, harness });
+    const r = await runInWorker({ lang: "javascript", src });
     finish(r.lines, { timedOut: r.timedOut });
   }
   async function runPython(src) {
-    const r = await runInWorker({ lang: "python", src, harness: P.harness.python, maxPart: Math.min(maxPart, 3), pyodideUrl: PYODIDE_URL });
+    const r = await runInWorker({ lang: "python", src, pyodideUrl: PYODIDE_URL });
     if (r.loadFailed) { finish(["__PAD_ERROR__", "Python couldn't load. Check your connection to cdn.jsdelivr.net and press Run again."]); return; }
     finish(r.lines, { timedOut: r.timedOut });
   }
@@ -534,7 +483,7 @@ public class PadRunner {
         URLClassLoader loader = new URLClassLoader(new URL[]{ new File(args[0]).toURI().toURL() }, PadRunner.class.getClassLoader());
         try {
             Method main = loader.loadClass(args[1]).getMethod("main", String[].class);
-            main.invoke(null, (Object) new String[]{ args[2] });
+            main.invoke(null, (Object) new String[0]);
         } catch (InvocationTargetException e) {
             System.out.println("__PAD_ERROR__");
             e.getCause().printStackTrace(System.out);
@@ -585,20 +534,21 @@ public class PadRunner {
   }
   async function runJava(src) {
     const ok = await ensureJava();
+    runStarted = performance.now();
     if (!ok) { finish(["__PAD_ERROR__", "The in-browser Java runtime couldn't start. It needs a normal browser tab in Chrome, Firefox, Edge or Safari (embedded browser panes can't run it) and a connection that can reach cjrtnc.leaningtech.com. Reload the page and press Run again."]); return; }
     statusEl.textContent = "Compiling…"; statusEl.className = "status busy";
     const dir = "/files/run" + Date.now() + "/";
     await window.cheerpjRunMain("PadRunner", CP, "--mkdir", dir);
-    putFile("/str/" + P.javaClass + ".java", src);
-    putFile("/str/" + P.javaTestClass + ".java", P.harness.java);
-    const c = await javac(["/str/" + P.javaClass + ".java", "/str/" + P.javaTestClass + ".java"], dir);
+    const cls = (/public\s+(?:final\s+)?class\s+(\w+)/.exec(src) || [, P.javaClass])[1];
+    putFile("/str/" + cls + ".java", src);
+    const c = await javac(["/str/" + cls + ".java"], dir);
     if (c.code !== 0) {
       const log = c.log.replace(/\/str\//g, "") || "javac exited with code " + c.code;
       finish(log.split("\n"), { compileError: true }); return;
     }
-    statusEl.textContent = "Running tests…";
+    statusEl.textContent = "Running…"; runStarted = performance.now();
     const con = jconsole(); con.textContent = "";
-    await window.cheerpjRunMain("PadRunner", CP, dir, P.javaTestClass, String(Math.min(maxPart, 3)));
+    await window.cheerpjRunMain("PadRunner", CP, dir, cls, "");
     for (let i = 0; i < 50 && !con.textContent.includes("__PAD_DONE__"); i++) await sleep(60);
     const lines = con.textContent.split("\n").filter((l) => l !== "__PAD_DONE__");
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
@@ -626,10 +576,9 @@ public class PadRunner {
     if (location.hash.slice(1) !== id) history.replaceState(null, "", "#" + id);
     document.title = P.title + " · Practice Pad";
     maxPart = LS.get(key("maxPart"), 1);
-    lastResults = null;
-    renderQuestion(); renderInterviewer(); renderChecks(); renderSolutionLock(); loadCode(); renderTests(null);
-    setOut([], ""); outEl.innerHTML = '<span class="dim">Nothing yet.</span>';
-    statusEl.textContent = "Press Run to run the tests for the parts you've unlocked."; statusEl.className = "status";
+    renderQuestion(); renderInterviewer(); renderChecks(); renderSolutionLock(); loadCode();
+    outEl.innerHTML = '<span class="dim">Nothing yet.</span>';
+    statusEl.textContent = "Press Run to run your code."; statusEl.className = "status";
     $("#tab-q").scrollTop = 0;
   }
   selectProblem(BY_ID[location.hash.slice(1)] ? location.hash.slice(1) : LS.get("pad2.problem", PROBLEMS[0].id));
