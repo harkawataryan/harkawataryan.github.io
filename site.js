@@ -182,10 +182,21 @@
   // Sent as text/plain so sendBeacon needs no preflight. Skipped when the
   // dashboard has flagged this browser as the owner's.
   const VISITS_API = 'https://concertify-cm6k.onrender.com/api/visits/hit';
-  function beacon(path, event) {
+  // A random id kept in this browser, so a returning visitor is recognized
+  // even after switching networks or updating the browser. It identifies
+  // nothing about the person.
+  let vid = null;
+  try {
+    vid = localStorage.getItem('aryanh.vid');
+    if (!vid) {
+      vid = window.crypto && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36));
+      localStorage.setItem('aryanh.vid', vid);
+    }
+  } catch (e) {}
+  function beacon(path, event, extra) {
     try {
       if (localStorage.getItem('skipgc')) return;
-      const body = JSON.stringify({ p: path, e: !!event, ref: document.referrer, w: screen.width });
+      const body = JSON.stringify(Object.assign({ p: path, e: !!event, ref: document.referrer, w: screen.width, v: vid, tp: navigator.maxTouchPoints || 0 }, extra));
       if (navigator.sendBeacon) navigator.sendBeacon(VISITS_API, new Blob([body], { type: 'text/plain' }));
       else fetch(VISITS_API, { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
     } catch (e) {}
@@ -242,16 +253,50 @@
     track('click/' + label);
   }, { passive: true });
 
+  // Time on the page counts only while it's visible, so a tab left open in
+  // the background doesn't read as a 3-hour visit.
+  let activeMs = 0;
+  let visibleSince = document.visibilityState === 'visible' ? Date.now() : null;
+  const activeS = () => Math.round((activeMs + (visibleSince ? Date.now() - visibleSince : 0)) / 1000);
+
+  // Scrolling, clicking, typing or touching marks a visit as a person's,
+  // which is how scanners that load the page from data centers get told apart.
+  let interacted = false;
+  ['scroll', 'wheel', 'pointerdown', 'keydown', 'touchstart', 'mousemove'].forEach((ev) =>
+    window.addEventListener(ev, () => { interacted = true; }, { passive: true, once: true }));
+
+  // Heartbeats while the page is visible: at 10s, 30s, then every 30s for up
+  // to half an hour. The closing beacon below is easy to lose (a phone kills
+  // the tab, a window is never closed, the server is still waking up), so
+  // the last heartbeat is what usually tells the dashboard how long someone
+  // stayed. They go only to the live log, not to GoatCounter.
+  let pings = 0, pingTimer = null;
+  const ping = () => beacon('ping', true, { k: 'ping', s: activeS(), d: order[deepest], i: interacted });
+  function schedulePing() {
+    clearTimeout(pingTimer);
+    if (document.visibilityState !== 'visible' || activeS() > 1800) return;
+    pingTimer = setTimeout(() => { pings++; ping(); schedulePing(); }, pings === 0 ? 10e3 : pings === 1 ? 20e3 : 30e3);
+  }
+  schedulePing();
+
   // One summary event per visit: visit/<deepest section>/<time bucket>.
-  const start = Date.now();
   let sent = false;
   function sendSummary() {
     if (sent) return;
     sent = true;
-    const s = (Date.now() - start) / 1000;
+    const s = activeS();
     const bucket = s < 3 ? '0-3s' : s < 8 ? '3-8s' : s < 20 ? '8-20s' : s < 60 ? '20-60s' : s < 180 ? '1-3m' : '3m+';
     track('visit/' + order[deepest] + '/' + bucket);
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendSummary(); });
-  window.addEventListener('pagehide', sendSummary);
+  function leaving() {
+    if (visibleSince) { activeMs += Date.now() - visibleSince; visibleSince = null; }
+    clearTimeout(pingTimer);
+    ping();
+    sendSummary();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') leaving();
+    else { visibleSince = Date.now(); schedulePing(); }
+  });
+  window.addEventListener('pagehide', leaving);
 })();

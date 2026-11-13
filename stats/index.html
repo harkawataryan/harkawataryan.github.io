@@ -208,7 +208,7 @@ button, input { font: inherit; color: inherit; }
         <option value="">All devices</option><option value="phone">Phone</option><option value="tablet">Tablet</option><option value="desktop">Desktop</option>
       </select>
       <select id="vWho" aria-label="New or returning">
-        <option value="">New and returning</option><option value="new">First visit</option><option value="returning">Returning</option>
+        <option value="">New and returning</option><option value="new">First visit</option><option value="returning">Returning</option><option value="auto">Automated</option>
       </select>
       <select id="vSort" aria-label="Sort">
         <option value="new">Newest first</option><option value="long">Longest stay</option><option value="clicks">Most clicks</option>
@@ -725,8 +725,10 @@ button, input { font: inherit; color: inherit; }
     const tally = { refs: new Map(), countries: new Map(), states: new Map(), devices: new Map(), browsers: new Map(), systems: new Map() };
     const add = (k, id, name) => { const m = tally[k]; const e = m.get(id) || { id, name, count: 0 }; e.count++; m.set(id, e); };
     for (const v of visits || []) {
-      if (v.t > w.now) continue;
+      if (v.t > w.now || v.auto) continue;
       const seen = new Set();
+      // Its first beacon was lost while the server woke up, but heartbeats show it was a page view.
+      if (!v.hits.some((h) => !h.e)) { seen.add('p:/'); bump(paths, 'p:/', v.t); }
       for (const h of v.hits) {
         const key = (h.e ? 'e:' : 'p:') + h.p;
         if (seen.has(key)) continue;
@@ -786,6 +788,8 @@ button, input { font: inherit; color: inherit; }
     return r ? `${r}, ${name}` : name;
   }
   const deviceOf = (w) => (!w ? 'unknown' : w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop');
+  const bucketOf = (s) => (s < 3 ? '0-3s' : s < 8 ? '3-8s' : s < 20 ? '8-20s' : s < 60 ? '20-60s' : s < 180 ? '1-3m' : '3m+');
+  const duration = (s) => (s < 60 ? s + 's' : Math.floor(s / 60) + 'm' + (s % 60 ? ' ' + (s % 60) + 's' : ''));
   const SEC_ORDER = ['top', 'work', 'projects', 'herd', 'concertify', 'clouds', 'about'];
 
   // Derive what a visit did from its raw hits.
@@ -799,14 +803,20 @@ button, input { font: inherit; color: inherit; }
       const m = h.p.match(/^visit\/([^/]+)\/(.+)$/);
       if (m) { section = m[1]; bucket = m[2]; }
     }
+    // Heartbeats carry the exact visible time and deepest section, and keep
+    // coming when the closing summary is lost, so they win when present.
+    const ended = !!bucket;
+    if (v.deepest) section = v.deepest;
+    if (v.active > 0) bucket = bucketOf(v.active);
     const bi = BUCKETS.indexOf(bucket);
     const span = (Date.parse(v.end) - t0) / 1000;
+    const auto = !!(v.dc && !v.human);
     return Object.assign({}, v, {
-      t: t0, place: place(v.loc), device: deviceOf(v.width), section, bucket, bi, clicks, pages, span,
+      t: t0, place: place(v.loc), device: v.kind || deviceOf(v.width), section, bucket, bi, clicks, pages, span, ended, auto,
       engaged: bi >= 2, bounced: bi === 0 && !clicks.length,
-      // Sort key for "longest stay": the time bucket, then the span between hits.
-      stay: bi >= 0 ? bi * 1e6 + span : span,
-      text: [place(v.loc), v.loc, v.ref, v.browser, v.system, clicks.join(' '), section, pages.join(' ')].join(' ').toLowerCase(),
+      // Sort key for "longest stay": exact seconds when known, else the middle of the bucket.
+      stay: v.active > 0 ? v.active : bi >= 0 ? [1, 5, 14, 40, 120, 300][bi] : 0,
+      text: [place(v.loc), v.loc, v.ref, v.browser, v.system, clicks.join(' '), section, pages.join(' '), auto ? 'automated' : ''].join(' ').toLowerCase(),
     });
   }
 
@@ -882,6 +892,14 @@ button, input { font: inherit; color: inherit; }
     const lv = live ? live.visits.map(fillLoc) : [];
     const seenLive = (a) => lv.some((v) => Math.abs(v.t - a.t) < 180e3 && (!a.loc || !v.loc || a.loc === v.loc));
     visits = lv.concat((archive || []).filter((v) => !seenLive(v))).sort((a, b) => b.t - a.t);
+    // Number each visitor's visits in order, so a returning visitor shows which visit this is.
+    const seq = new Map();
+    for (let i = visits.length - 1; i >= 0; i--) {
+      const v = visits[i];
+      if (!v.visitor) continue;
+      v.nth = (seq.get(v.visitor) || 0) + 1;
+      seq.set(v.visitor, v.nth);
+    }
     visits.updated = live ? live.updated : (archive && archive.updated);
     if (liveOk()) useLive(); else if (data) renderVisits();
     renderLiveStatus();
@@ -904,7 +922,9 @@ button, input { font: inherit; color: inherit; }
     }
     if (liveError) { el.textContent = 'Live log unavailable (' + liveError + '). ' + (token ? 'Showing GoatCounter and the hourly log as a backup.' : 'Add a GoatCounter token at sign-in to have a backup.'); return; }
     if (!live) { el.textContent = 'Connecting to the live log. A sleeping server can take up to a minute to wake.'; return; }
-    const now = live.visits.filter((v) => !v.section && Date.now() - Date.parse(v.end) < 5 * 60e3).length;
+    // Open pages send a heartbeat every 30 seconds; pages too old for
+    // heartbeats only show up as still here until they send their summary.
+    const now = live.visits.filter((v) => !v.ended && !v.auto && Date.now() - Date.parse(v.end) < (v.active ? 90e3 : 5 * 60e3)).length;
     el.textContent = 'Live · updates every 30 seconds' + (now ? ' · ' + now + (now === 1 ? ' person' : ' people') + ' on the site now' : '');
     if (archive === null) {
       const b = document.createElement('button');
@@ -983,7 +1003,7 @@ button, input { font: inherit; color: inherit; }
       v.t >= from &&
       (vf.eng === 'all' || (vf.eng === 'engaged' && v.engaged) || (vf.eng === 'clicked' && v.clicks.length) || (vf.eng === 'bounced' && v.bounced)) &&
       (!vf.device || v.device === vf.device) &&
-      (!vf.who || (vf.who === 'new') === v.first) &&
+      (vf.who === 'auto' ? v.auto : !v.auto && (!vf.who || (vf.who === 'new') === v.first)) &&
       (!q || q.split(/\s+/).every((w) => v.text.includes(w))));
     const by = { new: (a, b) => b.t - a.t, long: (a, b) => b.stay - a.stay || b.t - a.t, clicks: (a, b) => b.clicks.length - a.clicks.length || b.t - a.t };
     return out.sort(by[vf.sort]);
@@ -993,7 +1013,7 @@ button, input { font: inherit; color: inherit; }
   const tag = (text, cls) => el('span', 'tag' + (cls ? ' ' + cls : ''), text);
   const whenLbl = (t) => fmt({ month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(t);
   const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
-  const stayLbl = (v) => (v.bucket ? v.bucket.replace('-', '–') : v.span >= 1 ? Math.round(v.span) + 's+' : 'unknown');
+  const stayLbl = (v) => (v.active > 0 ? duration(v.active) : v.bucket ? v.bucket.replace('-', '–') : v.span >= 1 ? Math.round(v.span) + 's+' : 'unknown');
 
   function renderVisits() {
     if (!visits) return;
@@ -1011,6 +1031,8 @@ button, input { font: inherit; color: inherit; }
       const c1 = el('td', 'num', whenLbl(v.t)); c1.append(el('small', '', ago(v.t)));
       const c2 = el('td', '', v.place);
       if (v.first) { c2.append(document.createElement('br')); c2.append(tag('first visit', 'new')); }
+      else if (v.nth > 1) { c2.append(document.createElement('br')); c2.append(tag('visit ' + v.nth)); }
+      if (v.auto) { c2.append(document.createElement('br')); c2.append(tag('automated')); }
       const c3 = el('td', 'ref', v.ref || 'Direct'); c3.title = v.ref || 'Direct, typed or bookmarked';
       const c4 = el('td', '', v.device[0].toUpperCase() + v.device.slice(1)); c4.append(el('small', '', [v.browser, v.system].filter(Boolean).join(' · ')));
       const c5 = el('td', '', v.section ? v.section[0].toUpperCase() + v.section.slice(1) : '–');
@@ -1041,8 +1063,10 @@ button, input { font: inherit; color: inherit; }
     add('Browser', v.browser || 'Unknown');
     add('System', v.system || 'Unknown');
     add('Screen', v.width ? `${v.width}px wide (${v.device})` : 'Unknown');
-    add('Visitor', v.first ? 'First visit' : 'Returning');
+    add('Visitor', (v.first ? 'First visit' : 'Returning') + (v.nth > 1 ? `, visit ${v.nth} from this browser` : ''));
     add('Deepest', v.section ? `${v.section}, stayed ${stayLbl(v)}` : 'No summary sent (left fast, or blocked)');
+    if (v.active > 0) add('Time on page', duration(v.active) + ' with the page visible');
+    if (v.dc != null) add('Network', v.dc ? (v.human ? 'Data center or VPN, but interacted with the page' : 'Data center, never interacted (likely automated)') : 'Home, office or mobile');
     add('Session', v.id);
     const tl = el('ol', 'timeline');
     for (const h of v.hits) {
