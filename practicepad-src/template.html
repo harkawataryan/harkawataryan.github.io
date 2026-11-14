@@ -20,6 +20,11 @@ select.picker{font:inherit;color:var(--fg);background:var(--panel-2);border:1px 
 .probnav{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
 .probnav .grp{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 select.picker{max-width:22rem}
+#monaco{display:none}
+.editor.monaco-on > .gutter,.editor.monaco-on > .codewrap{display:none}
+.editor.monaco-on #monaco{display:block;position:absolute;inset:0}
+.actoggle{font-size:12.5px}
+.actoggle[aria-pressed="true"]{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -138,6 +143,7 @@ select.picker{max-width:22rem}
     <section class="work">
       <div class="editor" id="editor">
         <div class="gutter" id="gutter">1</div>
+        <div id="monaco"></div>
         <div class="codewrap">
           <pre id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
           <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code editor"></textarea>
@@ -146,6 +152,7 @@ select.picker{max-width:22rem}
       <div class="console">
         <div class="bar">
           <button class="ctab-btn" id="cb-out" aria-selected="true">Output</button>
+          <button class="btn sm ghost actoggle hid" id="actoggle" aria-pressed="false" title="CoderPad-style autocomplete (word suggestions). Off by default, like a plain interview pad.">Autocomplete: off</button>
           <span class="status" id="status">Press Run to run your code.</span>
         </div>
         <div class="out" id="out"><span class="dim">Nothing yet.</span></div>
@@ -294,7 +301,22 @@ select.picker{max-width:22rem}
   // ---------- editor ----------
   const ta = $("#code"), hlc = $("#hlcode"), hlpre = $("#hl"), gutter = $("#gutter"), langSel = $("#lang");
   langSel.value = lang;
-  function loadCode() { ta.value = LS.get(key("code." + lang), P.starters[lang]); render(); ta.scrollTop = 0; syncScroll(); }
+  let mon = null, monSetting = false;            // Monaco editor, once loaded
+  const MONACO_LANG = { python: "python", javascript: "javascript", java: "java" };
+  function getCode() { return mon ? mon.editor.getValue() : ta.value; }
+  function setCode(v) {
+    ta.value = v; render();
+    if (mon) {
+      monSetting = true;
+      const model = mon.editor.getModel();
+      mon.monaco.editor.setModelLanguage(model, MONACO_LANG[lang]);
+      mon.editor.updateOptions({ tabSize: lang === "javascript" ? 2 : 4 });
+      model.setValue(v);
+      mon.editor.setScrollTop(0); mon.editor.setPosition({ lineNumber: 1, column: 1 });
+      monSetting = false;
+    }
+  }
+  function loadCode() { setCode(LS.get(key("code." + lang), P.starters[lang])); ta.scrollTop = 0; syncScroll(); }
   function render() {
     const v = ta.value;
     let html;
@@ -353,8 +375,58 @@ select.picker{max-width:22rem}
   $("#resetcode").addEventListener("click", () => {
     if (!resetArmed) { resetArmed = true; $("#resetcode").textContent = "Really reset?"; resetTimer = setTimeout(() => { resetArmed = false; $("#resetcode").textContent = "Reset code"; }, 3000); return; }
     clearTimeout(resetTimer); resetArmed = false; $("#resetcode").textContent = "Reset code";
-    ta.value = P.starters[lang]; LS.set(key("code." + lang), ta.value); render();
+    setCode(P.starters[lang]); LS.set(key("code." + lang), getCode());
   });
+
+  // ---------- Monaco (the editor CoderPad uses); falls back to the plain editor if it can't load ----------
+  const MONACO_BASE = new URLSearchParams(location.search).get("monaco") || "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
+  function loadMonaco() {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = MONACO_BASE + "/vs/loader.js";
+      s.onerror = () => reject(new Error("monaco loader failed"));
+      s.onload = () => {
+        const amdRequire = window.require;
+        window.MonacoEnvironment = { getWorkerUrl: () => "data:text/javascript;charset=utf-8," + encodeURIComponent(
+          `self.MonacoEnvironment = { baseUrl: "${MONACO_BASE}/" }; importScripts("${MONACO_BASE}/vs/base/worker/workerMain.js");`) };
+        amdRequire.config({ paths: { vs: MONACO_BASE + "/vs" } });
+        amdRequire(["vs/editor/editor.main"], () => resolve(window.monaco), reject);
+      };
+      document.head.append(s);
+    });
+  }
+  let autocomplete = LS.get("pad2.autocomplete", false);
+  function acOptions() {
+    return { quickSuggestions: autocomplete ? { other: true, comments: false, strings: false } : false,
+             suggestOnTriggerCharacters: autocomplete, wordBasedSuggestions: autocomplete ? "currentDocument" : "off",
+             parameterHints: { enabled: autocomplete }, acceptSuggestionOnEnter: autocomplete ? "on" : "off" };
+  }
+  function paintAc() { const b = $("#actoggle"); b.setAttribute("aria-pressed", String(autocomplete)); b.textContent = "Autocomplete: " + (autocomplete ? "on" : "off"); }
+  $("#actoggle").addEventListener("click", () => { autocomplete = !autocomplete; LS.set("pad2.autocomplete", autocomplete); paintAc(); if (mon) mon.editor.updateOptions(acOptions()); });
+  withTimeout(loadMonaco(), 30000, "Monaco").then((monaco) => {
+    const css = getComputedStyle(document.documentElement);
+    const v = (n) => css.getPropertyValue(n).trim();
+    const light = matchMedia("(prefers-color-scheme: light)").matches;
+    monaco.editor.defineTheme("pad", { base: light ? "vs" : "vs-dark", inherit: true, rules: [],
+      colors: { "editor.background": v("--panel"), "editorGutter.background": v("--panel"), "editorLineNumber.foreground": v("--faint") } });
+    // JavaScript: keep syntax errors, drop the type-checker warnings CoderPad doesn't show.
+    try { monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false }); } catch (e) {}
+    const editor = monaco.editor.create($("#monaco"), Object.assign({
+      value: ta.value, language: MONACO_LANG[lang], theme: "pad", automaticLayout: true,
+      fontFamily: v("--mono"), fontSize: 13.5, lineHeight: 21, tabSize: lang === "javascript" ? 2 : 4, insertSpaces: true,
+      minimap: { enabled: false }, scrollBeyondLastLine: false, renderLineHighlight: "line", padding: { top: 10 },
+      autoClosingBrackets: "languageDefined", autoClosingQuotes: "languageDefined", autoIndent: "full",
+      matchBrackets: "always", formatOnType: false, formatOnPaste: false, snippetSuggestions: "none",
+      hover: { enabled: false }, lightbulb: { enabled: "off" }, inlineSuggest: { enabled: false },
+      fixedOverflowWidgets: true, scrollbar: { alwaysConsumeMouseWheel: false },
+    }, acOptions()));
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runCode());
+    editor.onDidChangeModelContent(() => { if (monSetting) return; ta.value = editor.getValue(); LS.set(key("code." + lang), ta.value); });
+    mon = { monaco, editor };
+    $("#editor").classList.add("monaco-on");
+    $("#actoggle").classList.remove("hid"); paintAc();
+    editor.focus();
+  }).catch((e) => { console.warn("Monaco unavailable, using the plain editor:", e); });
 
   // ---------- timer ----------
   const TOTAL = 45 * 60; let left = TOTAL, ticking = null;
@@ -522,7 +594,10 @@ public class PadRunner {
       try {
         statusEl.textContent = "Starting Java 21 (first run downloads the JDK)…"; statusEl.className = "status busy";
         jconsole();
-        await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js");
+        { // Monaco installs an AMD define(); hide its "amd" marker so the CheerpJ loader sets its normal globals.
+          const d = typeof window.define === "function" ? window.define : null, amd = d && d.amd;
+          if (d) d.amd = undefined;
+          try { await loadScript("https://cjrtnc.leaningtech.com/5.0/loader.js"); } finally { if (d) d.amd = amd; } }
         await withTimeout(window.cheerpjInit({ version: 21, status: "none" }), 90000, "JVM start");
         statusEl.textContent = "Warming up javac (first run only)…";
         putFile("/str/PadRunner.java", PAD_RUNNER);
@@ -581,7 +656,7 @@ public class PadRunner {
   let running = false;
   async function runCode() {
     if (running) return; running = true; $("#run").disabled = true;
-    const src = ta.value;
+    const src = getCode();
     try {
       if (lang === "javascript") await runJS(src);
       else if (lang === "python") await runPython(src);
