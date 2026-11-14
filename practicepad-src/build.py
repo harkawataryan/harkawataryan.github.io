@@ -648,15 +648,17 @@ DEMOS = {
     "fold": {
         "python": ("    # The example file from the question; compare with the expected rows there.\n"
                    f"    lines = {_FOLD_LINES!r}\n    ops = {_FOLD_OPS!r}\n"
-                   "    for op, row in zip(ops, code_editor_operations(lines, ops)):\n        print(f\"{op:15} -> {row}\")\n"),
+                   "    out = code_editor_operations(lines, ops) or []\n    if len(out) != len(ops):\n        print(f\"Note: {len(ops)} operations but {len(out)} output rows\")\n    for i, row in enumerate(out):\n        print(f\"{ops[i] if i < len(ops) else '?':15} -> {row}\")\n"),
         "javascript": ("// The example file from the question; compare with the expected rows there.\n"
                        f"const lines = {json.dumps(_FOLD_LINES)};\nconst ops = {json.dumps(_FOLD_OPS)};\n"
-                       "codeEditorOperations(lines, ops).forEach((row, i) => console.log(ops[i].padEnd(15), \"->\", JSON.stringify(row)));\n"),
+                       "const out = codeEditorOperations(lines, ops) || [];\nif (out.length !== ops.length) console.log(`Note: ${ops.length} operations but ${out.length} output rows`);\nout.forEach((row, i) => console.log((ops[i] ?? \"?\").padEnd(15), \"->\", JSON.stringify(row)));\n"),
         "java": ("        // The example file from the question; compare with the expected rows there.\n"
                  "        String[] lines = {" + ", ".join(json.dumps(x) for x in _FOLD_LINES) + "};\n"
                  "        String[] ops = {" + ", ".join(json.dumps(x) for x in _FOLD_OPS) + "};\n"
                  "        String[][] out = codeEditorOperations(lines, ops);\n"
-                 "        for (int i = 0; i < ops.length; i++) System.out.println(ops[i] + \" -> \" + java.util.Arrays.toString(out[i]));\n"),
+                 "        if (out == null) out = new String[0][];\n"
+                 "        if (out.length != ops.length) System.out.println(\"Note: \" + ops.length + \" operations but \" + out.length + \" output rows\");\n"
+                 "        for (int i = 0; i < out.length; i++) System.out.println((i < ops.length ? ops[i] : \"?\") + \" -> \" + java.util.Arrays.toString(out[i]));\n"),
     },
 }
 
