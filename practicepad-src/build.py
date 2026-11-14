@@ -642,6 +642,24 @@ def bank_starters(title):
             "    public static void main(String[] args) {\n    }\n}\n")
     return {"python": py, "javascript": js, "java": java}
 
+_FOLD_LINES = ["def outer() {", "  before();", "  if (ready) {", "    work();", "  }", "  after();", "}", "done();"]
+_FOLD_OPS = ["MATCH", "TOGGLE 2", "GET", "TOGGLE 0", "GET", "TOGGLE_LINE 0", "GET_RANGE 1 3"]
+DEMOS = {
+    "fold": {
+        "python": ("    # The example file from the question; compare with the expected rows there.\n"
+                   f"    lines = {_FOLD_LINES!r}\n    ops = {_FOLD_OPS!r}\n"
+                   "    for op, row in zip(ops, code_editor_operations(lines, ops)):\n        print(f\"{op:15} -> {row}\")\n"),
+        "javascript": ("// The example file from the question; compare with the expected rows there.\n"
+                       f"const lines = {json.dumps(_FOLD_LINES)};\nconst ops = {json.dumps(_FOLD_OPS)};\n"
+                       "codeEditorOperations(lines, ops).forEach((row, i) => console.log(ops[i].padEnd(15), \"->\", JSON.stringify(row)));\n"),
+        "java": ("        // The example file from the question; compare with the expected rows there.\n"
+                 "        String[] lines = {" + ", ".join(json.dumps(x) for x in _FOLD_LINES) + "};\n"
+                 "        String[] ops = {" + ", ".join(json.dumps(x) for x in _FOLD_OPS) + "};\n"
+                 "        String[][] out = codeEditorOperations(lines, ops);\n"
+                 "        for (int i = 0; i < ops.length; i++) System.out.println(ops[i] + \" -> \" + java.util.Arrays.toString(out[i]));\n"),
+    },
+}
+
 
 def _fix(s, fixes):
     for old, new in fixes:
@@ -659,12 +677,15 @@ def run_only(p):
                          ("Tests run for every part you've unlocked.", "")):
             s = s.replace(old, new)
         st[lang] = s
-    st["python"] = st["python"].rstrip() + "\n\n\nif __name__ == \"__main__\":\n    # Try your functions here; Run prints whatever you print.\n    pass\n"
-    st["javascript"] = st["javascript"].rstrip() + "\n\n// Try your functions here; Run executes this file.\n"
+    demo = DEMOS.get(p["id"], {})
+    st["python"] = st["python"].rstrip() + "\n\n\nif __name__ == \"__main__\":\n" + demo.get(
+        "python", "    # Try your functions here; Run prints whatever you print.\n    pass\n")
+    st["javascript"] = st["javascript"].rstrip() + "\n\n" + demo.get(
+        "javascript", "// Try your functions here; Run executes this file.\n")
     j = st["java"].rstrip()
     assert j.endswith("}"), p["id"]
-    st["java"] = j[:-1].rstrip() + ("\n\n    public static void main(String[] args) {\n"
-                                     "        // Try your code here; Run prints whatever you print.\n    }\n}\n")
+    st["java"] = j[:-1].rstrip() + "\n\n    public static void main(String[] args) {\n" + demo.get(
+        "java", "        // Try your code here; Run prints whatever you print.\n") + "    }\n}\n"
     out = {k: p[k] for k in ("id", "title", "tagline", "source", "intro", "parts", "clarify", "nudges", "solution", "fnames", "javaClass")}
     out["intro"] = out["intro"].replace("the tests use", "the examples use")
     fixes = (("That's what the tests here do.", ""),

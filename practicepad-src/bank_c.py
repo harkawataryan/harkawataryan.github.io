@@ -20,7 +20,7 @@ SOLE_MATE = P(
 <li>Existing add-points and remove-points functions change the balance without updating the tier. Every mutation must keep the tier consistent, including downgrades.</li></ol>
 <p>Other comments: centralize the tier thresholds instead of repeated range checks; <code>apply_discount</code> only computes a price, so the name misleads; floating-point prices converted to integer points need explicit rounding rules.</p>
 <h3>Part 2: the algorithm is wrong</h3>
-<p>It only looks one tier ahead, but one purchase can jump several tiers. Counterexample: tiers Bronze 0 (0%), Silver 100 (1%), Gold 101 (2%), Platinum 102 (99%). Mandatory [90, 100], optional [12]. Greedy: buying 100 first loses 1.00 and gains only 0.90 on the 90, so it stops: total 100 + 89.10 = 189.10. Better: buy 90 + 12 together (102 points, Platinum), then 100 at 99% off = 1: total 103.</p>
+<p>It only looks one tier ahead, but one purchase can jump several tiers. Counterexample: tiers Bronze 0 (0%), Silver 100 (1%), Gold 101 (2%), Platinum 102 (99%). Mandatory [90, 100], optional [12]. Greedy looks only at Silver: buying the 100 first loses 1.00 (it's bought before the discount) and gains only 0.90 (1% off the remaining 90), so it stops and buys the rest at full price: 190. Better: buy 90 + 12 together (102 points jumps straight to Platinum), then the 100 at 99% off costs 1: total 103.</p>
 <p><b>How to run the round:</b> read everything first, rank findings (bugs, then correctness risks, then readability, then style), say which are blocking, and propose tests that would have caught each bug.</p>""",
 )
 

@@ -278,7 +278,7 @@ WEIGHTED_GRAPH = P(
     "Build a graph of conversion facts → answer queries → shortest weighted paths",
     "Reported (other questions list; a sample video question).",
     q("Facts like <code>(\"m\", 3.28, \"ft\")</code> mean 1 m = 3.28 ft. Queries like <code>(2, \"m\", \"in\")</code> ask how many inches are in 2 meters."),
-    [("Convert", "<p>With facts m→ft 3.28, ft→in 12, hr→min 60, min→sec 60: (2, m, in) → 78.72; (13, in, m) → about 0.396; (2, m, hr) → none.</p>"),
+    [("Convert", "<p>With facts m→ft 3.28, ft→in 12, hr→min 60, min→sec 60: (2, m, in) → 78.72; (13, in, m) → about 0.330; (2, m, hr) → none.</p><p class='meta'>The reported example says about 0.396 for 13 in → m; the correct value is 13 / 12 / 3.28 ≈ 0.330.</p>"),
      ("Flights variant", "<p>Directed routes with durations; find the fastest route between two cities (NYC→SEA = 8.0 via LAX). Why is BFS wrong here?</p>")],
     clarify=[("Do facts imply the reverse conversion?", "Yes: add the reciprocal edge."), ("Unknown unit?", "Return none.")],
     solution="""
@@ -291,7 +291,7 @@ WORDLE = P(
     "Count exact and misplaced matches between two strings",
     "Reported (other questions list).",
     q("Given two strings of equal length, return (same-position matches, different-position matches). Each character counts once; use the minimum frequency."),
-    [("Compare", "<p><code>(abc, axc) → (2, 0)</code>, <code>(abc, bca) → (0, 3)</code>, <code>(aab, bba) → (0, 2)</code>, <code>(CRANE, ALERT) → (1, 2)</code>.</p>")],
+    [("Compare", "<p><code>(abc, axc) → (2, 0)</code>, <code>(abc, bca) → (0, 3)</code>, <code>(aab, bba) → (0, 2)</code>, <code>(CRANE, ALERT) → (0, 3)</code>.</p><p class='meta'>The reported example says (1, 2) for CRANE/ALERT, but ALERT's index 1 is L, not R: A, R and E all match in different positions.</p>")],
     solution="""
 <p>exact = count of i with a[i] == b[i]. Count characters at non-exact positions in each string; misplaced = sum over characters of min(countA, countB). Equivalently total overlap (min frequencies over the whole strings) minus exact. O(n).</p>""",
 )

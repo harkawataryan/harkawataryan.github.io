@@ -321,25 +321,32 @@ FOLD = dict(
 <p>Support <code>MATCH</code>: return every block as <code>"open:close"</code>, sorted by opening line.</p>
 <p>Example: the file below gives <code>["0:6", "2:4"]</code>.</p>
 <pre class="treebox">0  def outer() {
-1   before();
-2   if (ready) {
-3   work();
-4   }
-5   after();
+1    before();
+2    if (ready) {
+3      work();
+4    }
+5    after();
 6  }
-7  done();</pre>"""),
+7  done();</pre>
+<p class="meta">An operation is one string: <code>"MATCH"</code>, <code>"TOGGLE 2"</code>, <code>"GET_RANGE 0 5"</code>. Each operation produces one row (a list of strings) in the output, in order.</p>"""),
         dict(title="Fold and unfold", fns=[], body=q("Interviewer", "Now the actual folding. Same function, two more operations.") + """
 <ul>
 <li><code>TOGGLE i</code>: flip the folded state of the block that opens on original line <code>i</code>, even if it's currently hidden inside a folded parent. Output an empty row.</li>
 <li><code>GET</code>: output the visible lines. A visible folded block shows its opening line cut right after the <code>{</code>, plus <code>" ... }"</code>, and hides everything through its closing line. Other lines are shown exactly as they are.</li>
 </ul>
 <p>Each block remembers its own state. Folding a parent doesn't change the children: unfold the parent later and any folded child is still folded.</p>
-<p>Example: <code>TOGGLE 2</code>, <code>GET</code> gives <code>["def outer() {", " before();", " if (ready) { ... }", " after();", "}", "done();"]</code>.</p>"""),
+<p>Example on the file above: <code>["TOGGLE 2", "GET"]</code> gives <code>[[], ["def outer() {", "  before();", "  if (ready) { ... }", "  after();", "}", "done();"]]</code>.</p>"""),
         dict(title="Display indices and the viewport", fns=[], tag="extension", body=q("Interviewer", "Users click on what they <em>see</em>, and the screen only shows a window of the file.") + """
 <ul>
 <li><code>TOGGLE_LINE d</code>: toggle the block whose opening line is currently shown at display row <code>d</code> (0-based, among visible rows). It's guaranteed to be an opening line. Output an empty row.</li>
 <li><code>GET_RANGE a b</code>: output visible rows <code>a</code> through <code>b − 1</code>. Clamp to what exists; an empty range is fine.</li>
 </ul>
+<p>Example on the same file: <code>["TOGGLE 2", "TOGGLE 0", "GET", "TOGGLE_LINE 0", "GET_RANGE 1 3"]</code> gives</p>
+<pre class="treebox">[]
+[]
+["def outer() { ... }", "done();"]
+[]                                   ← display row 0 is original line 0: unfold it
+["  before();", "  if (ready) { ... }"]   ← line 2 is still folded</pre>
 <p class="meta">Before you code: say how a display row maps back to an original line, and what that costs.</p>"""),
         dict(title="Discussion", discussion=True, body="""
 <ol>
@@ -354,7 +361,8 @@ FOLD = dict(
         ("When a block is folded, is trailing whitespace after the { kept?", "No: cut right after the <code>{</code>, then add <code>\" ... }\"</code>."),
         ("Does folding a parent reset the children?", "No. Each block keeps its own state. That's the main thing being tested in Part 2."),
         ("Can the file be empty?", "Yes. MATCH and GET return empty rows."),
-        ("How big can it get? How often is GET called?", "Small here. But in the real editor, GET runs on every repaint. <b>Same \"called a lot\" signal as Watchlist.</b>"),
+        ("Can TOGGLE target a block hidden inside a folded parent?", "Yes. Its state flips, and it shows up that way once the parent unfolds."),
+        ("How big can it get? How often is GET called?", "Small here. But in the real editor, GET runs on every repaint. <b>That \"called a lot\" signal means: think about what to cache.</b>"),
     ],
     nudges=[
         ("You're matching braces by scanning forward for the next }", "What does your matcher do with a nested block?",
