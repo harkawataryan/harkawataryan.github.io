@@ -812,8 +812,18 @@ button, input { font: inherit; color: inherit; }
     // closing summary, which is sent the moment the visitor leaves. The
     // summary's own bucket ("3-8s") is only a rounded label of the same thing.
     const firstView = v.hits.find((h) => !h.e);
-    const exact = v.active > 0 ? v.active : leftAt && firstView ? Math.max(0, Math.round((leftAt - Date.parse(firstView.t)) / 1000)) : null;
+    // A check-in's time is the whole visit only if it was the one sent on the
+    // way out (final) or the closing summary also arrived; otherwise the
+    // visitor stayed at least that long.
+    const exact = v.active > 0 && (v.final || ended) ? v.active : leftAt && firstView ? Math.max(0, Math.round((leftAt - Date.parse(firstView.t)) / 1000)) : null;
+    const lastCheckIn = exact == null && v.active > 0 ? v.active : null;
+    if (lastCheckIn != null) bucket = bucketOf(lastCheckIn);
     if (exact != null) bucket = bucketOf(exact);
+    // Pages on the newer tracking code check in at 3 seconds (the first
+    // version with a visitor id, at 10), so a visit from one with no
+    // check-in at all left before that.
+    const under = exact == null && lastCheckIn == null && !v.hits.some((h) => h.e) ? (v.cv >= 2 ? 3 : v.visitor ? 10 : null) : null;
+    if (under === 3) bucket = '0-3s';
     const bi = BUCKETS.indexOf(bucket);
     const span = (Date.parse(v.end) - t0) / 1000;
     const auto = !!(v.dc && !v.human);
@@ -821,9 +831,9 @@ button, input { font: inherit; color: inherit; }
       t: t0, place: place(v.loc), device: v.kind || deviceOf(v.width), section, bucket, bi, clicks, pages, span, ended, auto,
       engaged: bi >= 2, bounced: bi === 0 && !clicks.length,
       // Sort key for "longest stay": exact seconds when known, else the middle of the bucket.
-      exact,
+      exact, under,
       // At least this long: the time between the first and last beacon when the visitor never sent a summary.
-      atLeast: exact == null && span >= 1 ? Math.round(span) : null,
+      atLeast: lastCheckIn != null ? lastCheckIn : exact == null && span >= 1 ? Math.round(span) : null,
       stay: exact != null ? exact : span >= 1 ? span : 0,
       text: [place(v.loc), v.loc, v.ref, v.browser, v.system, clicks.join(' '), section, pages.join(' '), auto ? 'automated' : ''].join(' ').toLowerCase(),
     });
@@ -1022,7 +1032,7 @@ button, input { font: inherit; color: inherit; }
   const tag = (text, cls) => el('span', 'tag' + (cls ? ' ' + cls : ''), text);
   const whenLbl = (t) => fmt({ month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(t);
   const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
-  const stayLbl = (v) => (v.exact != null ? duration(v.exact) : v.atLeast ? duration(v.atLeast) + '+' : 'unknown');
+  const stayLbl = (v) => (v.exact != null ? duration(v.exact) : v.atLeast ? duration(v.atLeast) + '+' : v.under ? 'under ' + v.under + 's' : 'unknown');
 
   function renderVisits() {
     if (!visits) return;
@@ -1074,9 +1084,10 @@ button, input { font: inherit; color: inherit; }
     add('Screen', v.width ? `${v.width}px wide (${v.device})` : 'Unknown');
     add('Visitor', (v.first ? 'First visit' : 'Returning') + (v.nth > 1 ? `, visit ${v.nth} from this browser` : ''));
     add('Deepest', v.section ? `${v.section}, stayed ${stayLbl(v)}` : 'No summary sent (left fast, or blocked)');
-    if (v.active > 0) add('Time on page', duration(v.active) + ' with the page visible');
+    if (v.exact != null && v.active > 0) add('Time on page', duration(v.active) + ' with the page visible');
     else if (v.exact != null) add('Time on page', duration(v.exact) + ', from the page view to when they left');
-    else if (v.atLeast) add('Time on page', 'at least ' + duration(v.atLeast) + ' (last beacon; it never said when they left)');
+    else if (v.atLeast) add('Time on page', 'at least ' + duration(v.atLeast) + ' (their last check-in; the goodbye never arrived)');
+    else if (v.under) add('Time on page', 'under ' + v.under + ' seconds. The page checks in at ' + v.under + ' seconds and never did, so they left before that.');
     else add('Time on page', 'Unknown. Nothing came back after the page loaded, which is usual for scanners and for tabs closed by the phone.');
     if (v.dc != null) add('Network', v.dc ? (v.human ? 'Data center or VPN, but interacted with the page' : 'Data center, never interacted (likely automated)') : 'Home, office or mobile');
     add('Session', v.id);

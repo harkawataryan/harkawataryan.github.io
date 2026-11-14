@@ -193,19 +193,25 @@
       localStorage.setItem('aryanh.vid', vid);
     }
   } catch (e) {}
-  function beacon(path, event, extra) {
+  // cv is the version of this tracking code: 2 sends its first check-in at
+  // 3 seconds, so a visit with none was shorter than that.
+  // `both` sends through sendBeacon and fetch at once, for the moment the
+  // visitor leaves: Safari on iPhone sometimes drops one of the two while the
+  // page is being torn down. The server ignores the duplicate.
+  function beacon(path, event, extra, both) {
     try {
       if (localStorage.getItem('skipgc')) return;
-      const body = JSON.stringify(Object.assign({ p: path, e: !!event, ref: document.referrer, w: screen.width, v: vid, tp: navigator.maxTouchPoints || 0 }, extra));
-      if (navigator.sendBeacon) navigator.sendBeacon(VISITS_API, new Blob([body], { type: 'text/plain' }));
-      else fetch(VISITS_API, { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+      const body = JSON.stringify(Object.assign({ p: path, e: !!event, ref: document.referrer, w: screen.width, v: vid, tp: navigator.maxTouchPoints || 0, cv: 2 }, extra));
+      const viaFetch = () => fetch(VISITS_API, { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+      const sent = navigator.sendBeacon ? navigator.sendBeacon(VISITS_API, new Blob([body], { type: 'text/plain' })) : false;
+      if (!sent || both) viaFetch();
     } catch (e) {}
   }
   beacon(location.pathname, false);
 
   // GoatCounter custom events. No-ops when the counter is blocked.
-  function track(path) {
-    beacon(path, true);
+  function track(path, both) {
+    beacon(path, true, null, both);
     if (!window.goatcounter || !window.goatcounter.count) return;
     window.goatcounter.count({ path: path, title: path, event: true });
   }
@@ -265,17 +271,19 @@
   ['scroll', 'wheel', 'pointerdown', 'keydown', 'touchstart', 'mousemove'].forEach((ev) =>
     window.addEventListener(ev, () => { interacted = true; }, { passive: true, once: true }));
 
-  // Heartbeats while the page is visible: at 10s, 30s, then every 30s for up
-  // to half an hour. The closing beacon below is easy to lose (a phone kills
+  // Heartbeats while the page is visible: at 3s, 10s, 30s, then every 30s for
+  // up to half an hour. The closing beacon below is easy to lose (a phone kills
   // the tab, a window is never closed, the server is still waking up), so
   // the last heartbeat is what usually tells the dashboard how long someone
   // stayed. They go only to the live log, not to GoatCounter.
   let pings = 0, pingTimer = null;
-  const ping = () => beacon('ping', true, { k: 'ping', s: activeS(), d: order[deepest], i: interacted });
+  // The check-in sent on the way out is marked final, so the dashboard
+  // knows its time is the whole visit and not just the latest reading.
+  const ping = (final) => beacon('ping', true, { k: 'ping', s: activeS(), d: order[deepest], i: interacted, f: !!final }, final);
   function schedulePing() {
     clearTimeout(pingTimer);
     if (document.visibilityState !== 'visible' || activeS() > 1800) return;
-    pingTimer = setTimeout(() => { pings++; ping(); schedulePing(); }, pings === 0 ? 10e3 : pings === 1 ? 20e3 : 30e3);
+    pingTimer = setTimeout(() => { pings++; ping(); schedulePing(); }, pings === 0 ? 3e3 : pings === 1 ? 7e3 : pings === 2 ? 20e3 : 30e3);
   }
   schedulePing();
 
@@ -286,12 +294,12 @@
     sent = true;
     const s = activeS();
     const bucket = s < 3 ? '0-3s' : s < 8 ? '3-8s' : s < 20 ? '8-20s' : s < 60 ? '20-60s' : s < 180 ? '1-3m' : '3m+';
-    track('visit/' + order[deepest] + '/' + bucket);
+    track('visit/' + order[deepest] + '/' + bucket, true);
   }
   function leaving() {
     if (visibleSince) { activeMs += Date.now() - visibleSince; visibleSince = null; }
     clearTimeout(pingTimer);
-    ping();
+    ping(true);
     sendSummary();
   }
   document.addEventListener('visibilitychange', () => {
@@ -299,4 +307,6 @@
     else { visibleSince = Date.now(); schedulePing(); }
   });
   window.addEventListener('pagehide', leaving);
+  // Chrome on Android freezes background tabs without always firing pagehide.
+  document.addEventListener('freeze', leaving);
 })();
