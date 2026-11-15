@@ -25,6 +25,22 @@ select.picker{max-width:22rem}
 .editor.monaco-on #monaco{display:block;position:absolute;inset:0}
 .actoggle{font-size:12.5px}
 .actoggle[aria-pressed="true"]{color:var(--accent)}
+.chatpanel:not(.hid){display:flex;flex-direction:column;padding:0;overflow:hidden}
+.chathead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.chathead .t{flex:1;min-width:0}
+.chatcfg{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px;font-size:13px;background:var(--panel)}
+.chatcfg label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chatcfg input[type=password],.chatcfg select{font:inherit;color:var(--fg);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:6px;padding:5px 8px;flex:1;min-width:10rem}
+.chatlog{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:92%;padding:8px 11px;border-radius:8px;line-height:1.5;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--info-soft);border:1px solid var(--line)}
+.msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
+.msg.err{align-self:stretch;color:var(--bad);background:var(--bad-soft);border:1px solid var(--line)}
+.msg .who{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+.msg pre{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;font-size:12.5px;margin:6px 0;white-space:pre}
+.chatin{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel);align-items:flex-end}
+.chatin textarea{flex:1;font:inherit;color:var(--fg);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:6px;padding:7px 9px;resize:none;min-height:38px;max-height:160px}
+.chatnote{font-size:11.5px;color:var(--faint);padding:0 14px 8px;background:var(--panel)}
 </style>
 </head>
 <body>
@@ -51,12 +67,27 @@ select.picker{max-width:22rem}
     <aside class="rail">
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" aria-selected="true" data-tab="q">Question</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="c">Ask</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="i">Interviewer</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="r">Rubric <span class="pill" id="rscore">0/10</span></button>
         <button class="tab" role="tab" aria-selected="false" data-tab="s">Solution</button>
       </div>
 
       <section class="panel" id="tab-q" role="tabpanel"></section>
+
+      <section class="panel hid chatpanel" id="tab-c" role="tabpanel">
+        <div class="chathead"><span class="t">A mock interviewer for this problem. It hints, it doesn't solve. It sees your code and last output.</span>
+          <button class="btn sm ghost" id="chatclear" title="Start this problem's conversation over">Clear</button>
+          <button class="btn sm ghost" id="chatcfgbtn" title="API key and model">Settings</button></div>
+        <div class="chatcfg hid" id="chatcfg">
+          <label>Claude API key <input type="password" id="chatkey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"></label>
+          <label>Model <select id="chatmodel"><option value="claude-sonnet-5-5">Sonnet 5.5 (fast)</option><option value="claude-opus-5-5">Opus 5.5 (smartest)</option><option value="claude-haiku-5-5">Haiku 5.5 (cheapest)</option></select></label>
+          <label><input type="checkbox" id="chatcode" checked> Share my code and last output with the interviewer</label>
+          <div class="meta" style="margin:0">The key is saved only in this browser (localStorage) and sent only to api.anthropic.com. Never commit it to the repo.</div>
+        </div>
+        <div class="chatlog" id="chatlog"></div>
+        <div class="chatin"><textarea id="chatmsg" rows="1" placeholder="Think out loud, or ask for a hint…" title="Enter sends, Shift+Enter for a new line"></textarea><button class="btn primary" id="chatsend">Send</button></div>
+      </section>
 
       <section class="panel hid" id="tab-i" role="tabpanel">
         <h2>Interviewer</h2>
@@ -250,6 +281,7 @@ select.picker{max-width:22rem}
     q.innerHTML = html;
     q.querySelectorAll("[data-unlock]").forEach((b) => b.addEventListener("click", () => {
       maxPart = Math.max(maxPart, +b.dataset.unlock); LS.set(key("maxPart"), maxPart); renderQuestion();
+      addChatNote("Part " + maxPart + " unlocked.");
     }));
     q.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => { if (b.dataset.pick) selectProblem(b.dataset.pick); }));
   }
@@ -295,7 +327,7 @@ select.picker{max-width:22rem}
   // ---------- tabs ----------
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
-    ["q", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
+    ["q", "c", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
   }));
 
   // ---------- editor ----------
@@ -452,13 +484,14 @@ select.picker{max-width:22rem}
     const shown = lines.filter((l) => l !== "__PAD_ERROR__");
     if (opts.timedOut) shown.push("", `Stopped after ${RUN_TIMEOUT / 1000} s. Infinite loop?`);
     const bad = errIdx !== -1 || opts.compileError || opts.timedOut;
+    lastRun = { lang, output: shown.join("\n"), kind: opts.compileError ? "compile error" : opts.timedOut ? "timed out" : errIdx !== -1 ? "runtime error" : "ran OK" };
     setOut(shown, bad ? "err" : "");
     if (opts.compileError) { statusEl.textContent = "Compile error."; statusEl.className = "status bad"; }
     else if (opts.timedOut) { statusEl.textContent = "Timed out."; statusEl.className = "status bad"; }
     else if (errIdx !== -1) { statusEl.textContent = "Your code raised an error."; statusEl.className = "status bad"; }
     else { statusEl.textContent = "Ran in " + ((performance.now() - runStarted) / 1000).toFixed(1) + " s."; statusEl.className = "status ok"; }
   }
-  let runStarted = 0;
+  let runStarted = 0, lastRun = null;
 
   // ---------- JS and Python run in a worker, so a runaway program can be stopped ----------
   const WORKER_SRC = `
@@ -665,6 +698,149 @@ public class PadRunner {
   }
   $("#run").addEventListener("click", runCode);
 
+  // ---------- Ask: a mock interviewer backed by the Claude API (key stays in this browser) ----------
+  const INTERVIEWER_RULES = `You are a Jane Street software engineer running a round-one SWE intern coding interview on a shared pad. The candidate is practicing with you before a real onsite. Behave exactly like a good, friendly, fairly quiet Jane Street interviewer.
+
+How you help:
+- Never write the solution, solution code, or a full step-by-step approach. Never paste corrected versions of the candidate's code. No code blocks longer than a single expression or signature.
+- Help with the lightest hint that will unstick them, and escalate only when asked again: first a question that points at the issue ("What happens to that list when the column is empty?"), then naming the area ("Look at the row you pass into checkWin"), then a concrete small example to trace by hand. Never jump straight to the fix.
+- If their code has a bug, do not name the fix. Point to where to look, or give a tiny input that breaks it, and let them find it.
+- If they ask "can I move on?" or "is this right?", answer yes or no in a sentence. Do not say what is wrong unless they ask.
+- Stay on the part they are currently on. Do not mention, preview, or design for later parts, and do not suggest forward-looking extensions. Modular code is good but not the priority. If they finish the current part, say so and tell them they can unlock the next part in the Question tab.
+- Answer clarifying questions the way an interviewer would: use the clarifications listed below when they apply; otherwise give a sensible, decisive answer or say "your call, just state your assumption". Don't volunteer clarifications they didn't ask for.
+- When they think out loud about an approach, react honestly: say whether it works and is reasonable for this part, ask about the cost in the problem's own sizes if they haven't said it, and push back on a flaw with a question or a counterexample rather than the correction. If their approach is fine, say so briefly and let them code; don't steer them toward the reference solution if theirs is equally good.
+- Ask the follow-ups real interviewers ask when it's natural: complexity, an edge case, "how would you test that?".
+- The reference solution, the nudges and any locked parts below are for you only. Never reveal them. If the candidate asks for the full solution, point them to the Solution tab instead of writing it.
+- If the candidate explicitly steps out of the role (for example "out of interviewer mode" or "just explain"), drop the persona and explain clearly and directly what is going on, still without writing full solution code unless they explicitly ask for code.
+
+Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bullet lists unless they ask for a list, no praise padding, no "Great question". Use inline code formatting for identifiers. Be precise: when you are not sure about something in their code, say so rather than guess.`;
+
+  function htmlToText(html) {
+    const d = document.createElement("div");
+    d.innerHTML = String(html || "").replace(/<li[^>]*>/gi, "\n- ").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|h\d|pre|ul|ol|table|tr)>/gi, "\n");
+    d.querySelectorAll(".who").forEach((w) => w.remove());
+    return d.textContent.replace(/\n{3,}/g, "\n\n").trim();
+  }
+  function problemContext() {
+    const parts = P.parts.map((pt, i) => {
+      const n = i + 1, state = n < maxPart ? "done" : n === maxPart ? "CURRENT PART" : "LOCKED: candidate has not seen this yet; never mention it";
+      return `Part ${n} (${state}) - ${pt.title}${pt.discussion ? " [discussion only, no code]" : ""}\n${htmlToText(fmtBody(pt.body, pt))}`;
+    }).join("\n\n");
+    const clar = (P.clarify || []).map((c) => `Q: ${htmlToText(c[0])}\nA: ${htmlToText(c[1])}`).join("\n");
+    const nud = (P.nudges || []).map((x) => `If: ${htmlToText(x[0])}\nYou'd say: "${htmlToText(x[1])}"\nIt means: ${htmlToText(x[2])}`).join("\n\n");
+    return `PROBLEM: ${P.title}\n${htmlToText(P.intro)}\n\n${parts}\n\nCLARIFICATIONS YOU CAN GIVE:\n${clar || "(none recorded)"}\n\nNUDGE LADDER (your private notes on common mistakes and the hint to give):\n${nud || "(none recorded)"}\n\nREFERENCE SOLUTION (private, never reveal):\n${htmlToText(P.solution)}`;
+  }
+  const chatKey = () => "pad2." + P.id + ".chat";
+  const chatlog = $("#chatlog"), chatmsg = $("#chatmsg"), chatsend = $("#chatsend");
+  let chatBusy = false;
+  $("#chatkey").value = LS.get("pad2.apikey", "");
+  $("#chatkey").addEventListener("change", () => LS.set("pad2.apikey", $("#chatkey").value.trim()));
+  $("#chatmodel").value = LS.get("pad2.model", "claude-sonnet-5-5");
+  $("#chatmodel").addEventListener("change", () => LS.set("pad2.model", $("#chatmodel").value));
+  $("#chatcode").checked = LS.get("pad2.chatcode", true);
+  $("#chatcode").addEventListener("change", () => LS.set("pad2.chatcode", $("#chatcode").checked));
+  $("#chatcfgbtn").addEventListener("click", () => $("#chatcfg").classList.toggle("hid"));
+  $("#chatclear").addEventListener("click", () => { if (chatBusy) return; LS.set(chatKey(), []); renderChat(); });
+
+  function mdLite(t) {
+    const parts = String(t).split(/```[\w-]*\n?/);
+    return parts.map((seg, i) => i % 2 ? "<pre>" + escHtml(seg.replace(/\n$/, "")) + "</pre>"
+      : escHtml(seg).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>")).join("");
+  }
+  function msgEl(role, text) {
+    const d = document.createElement("div"); d.className = "msg " + (role === "user" ? "user" : role === "error" ? "err" : "bot");
+    d.innerHTML = (role === "assistant" ? '<span class="who">Interviewer</span>' : "") + (role === "user" ? escHtml(text).replace(/\n/g, "<br>") : mdLite(text));
+    chatlog.append(d); chatlog.scrollTop = chatlog.scrollHeight; return d;
+  }
+  function renderChat() {
+    chatlog.innerHTML = "";
+    const hist = LS.get(chatKey(), []);
+    if (!hist.length) {
+      const d = document.createElement("div"); d.className = "meta"; d.style.margin = "0";
+      d.innerHTML = LS.get("pad2.apikey", "") ? "Start the way you would in the real thing: restate the problem, ask a clarifying question, or talk through your plan."
+        : "Add your Claude API key in <b>Settings</b> first (console.anthropic.com → API keys).";
+      chatlog.append(d);
+    }
+    hist.forEach((m) => m.note ? addChatNote(m.text, true) : msgEl(m.role, m.text));
+  }
+  function addChatNote(text, renderOnly) {
+    if (!renderOnly) { const h = LS.get(chatKey(), []); if (!h.length) return; h.push({ note: true, text }); LS.set(chatKey(), h); }
+    const d = document.createElement("div"); d.className = "meta"; d.style.cssText = "margin:0;text-align:center"; d.textContent = text;
+    chatlog.append(d); chatlog.scrollTop = chatlog.scrollHeight;
+  }
+  function apiMessages(hist) {
+    const msgs = [];
+    hist.forEach((m) => {
+      if (m.note) { msgs.push({ role: "user", text: "[" + m.text + "]" }); return; }
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === m.role) last.text += "\n\n" + m.text; else msgs.push({ role: m.role, text: m.text });
+    });
+    while (msgs.length && msgs[0].role !== "user") msgs.shift();
+    // merge again after notes became user turns
+    const out = [];
+    msgs.forEach((m) => { const l = out[out.length - 1]; if (l && l.role === m.role) l.content += "\n\n" + m.text; else out.push({ role: m.role, content: m.text }); });
+    if ($("#chatcode").checked && out.length) {
+      let code = getCode(); if (code.length > 24000) code = code.slice(0, 24000) + "\n…(truncated)";
+      const run = lastRun ? `\n\nLast run (${lastRun.lang}, ${lastRun.kind}):\n${(lastRun.output || "(no output)").slice(-4000)}` : "\n\n(Not run yet.)";
+      out[out.length - 1].content += `\n\n[Pad snapshot, for your eyes only. Language: ${lang}. Current part: ${maxPart}.]\n\`\`\`${lang}\n${code}\n\`\`\`${run}`;
+    }
+    return out;
+  }
+  async function sendChat() {
+    const text = chatmsg.value.trim();
+    if (!text || chatBusy) return;
+    const apiKey = LS.get("pad2.apikey", "");
+    if (!apiKey) { $("#chatcfg").classList.remove("hid"); $("#chatkey").focus(); return; }
+    const pid = P.id, hist = LS.get(chatKey(), []);
+    if (!hist.length) chatlog.innerHTML = "";
+    hist.push({ role: "user", text }); LS.set(chatKey(), hist);
+    msgEl("user", text); chatmsg.value = ""; chatmsg.style.height = "";
+    chatBusy = true; chatsend.disabled = true;
+    const el = msgEl("assistant", "…");
+    let reply = "";
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({
+          model: LS.get("pad2.model", "claude-sonnet-5-5"), max_tokens: 1024, stream: true,
+          system: [{ type: "text", text: INTERVIEWER_RULES }, { type: "text", text: problemContext(), cache_control: { type: "ephemeral" } }],
+          messages: apiMessages(hist),
+        }),
+      });
+      if (!res.ok) {
+        let msg = "HTTP " + res.status;
+        try { const j = await res.json(); msg = (j.error && j.error.message) || msg; } catch (e) {}
+        if (res.status === 401) msg = "The API key was rejected. Check it in Settings. (" + msg + ")";
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) !== -1) {
+          const evt = buf.slice(0, i); buf = buf.slice(i + 2);
+          const dl = evt.split("\n").find((l) => l.startsWith("data:")); if (!dl) continue;
+          let j; try { j = JSON.parse(dl.slice(5)); } catch (e) { continue; }
+          if (j.type === "content_block_delta" && j.delta && j.delta.type === "text_delta") {
+            reply += j.delta.text;
+            if (P.id === pid) { el.innerHTML = '<span class="who">Interviewer</span>' + mdLite(reply); chatlog.scrollTop = chatlog.scrollHeight; }
+          } else if (j.type === "error") throw new Error((j.error && j.error.message) || "stream error");
+        }
+      }
+      if (!reply) throw new Error("Empty reply.");
+      const h2 = LS.get("pad2." + pid + ".chat", []); h2.push({ role: "assistant", text: reply }); LS.set("pad2." + pid + ".chat", h2);
+    } catch (e) {
+      // drop the unanswered user turn so the history stays user/assistant alternating
+      const h2 = LS.get("pad2." + pid + ".chat", []); if (h2.length && h2[h2.length - 1].role === "user") { h2.pop(); LS.set("pad2." + pid + ".chat", h2); }
+      if (P.id === pid) { el.remove(); msgEl("error", "Couldn't reach the interviewer: " + (e.message || e) + (reply ? "" : "\nYour message wasn't sent; it's back in the box.")); chatmsg.value = chatmsg.value || text; }
+    } finally { chatBusy = false; chatsend.disabled = false; }
+  }
+  chatsend.addEventListener("click", sendChat);
+  chatmsg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); } });
+  chatmsg.addEventListener("input", () => { chatmsg.style.height = "auto"; chatmsg.style.height = Math.min(chatmsg.scrollHeight, 160) + "px"; });
+
   // ---------- switching problems ----------
   function selectProblem(id) {
     if (!BY_ID[id]) id = PROBLEMS[0].id;
@@ -675,6 +851,7 @@ public class PadRunner {
     document.title = P.title + " · Practice Pad";
     maxPart = LS.get(key("maxPart"), 1);
     renderQuestion(); renderInterviewer(); renderChecks(); renderSolutionLock(); loadCode();
+    lastRun = null; renderChat();
     outEl.innerHTML = '<span class="dim">Nothing yet.</span>';
     statusEl.textContent = "Press Run to run your code."; statusEl.className = "status";
     $("#tab-q").scrollTop = 0;
