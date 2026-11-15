@@ -705,10 +705,15 @@ def main():
     import bank_a, bank_b, bank_c, java_starters
     legacy = {P["id"]: run_only(generic(P)) for P in problems.ALL}
     legacy["watchlist"] = run_only(watchlist())
+    _wst = dict(legacy["watchlist"]["starters"])
+    _wst["java"] = re.sub(r"    /\*\* Part [2-9]\..*?\n    }\n\n", "", _wst["java"], flags=re.S)
+    legacy["watchlist"] = dict(legacy["watchlist"], starters=_wst)
     for pid, cls in {"fold": "CodeFolding", "stack": "StackInterpreter", "accum": "Accumulator", "towers": "Towers",
                      "wizard": "Wizard", "loadout": "Loadout", "dice": "Dice"}.items():
         st = dict(legacy[pid]["starters"])
         st["java"] = st["java"].replace("public class Solution {", "public class " + cls + " {", 1)
+        # Only Part 1's function, so the starter doesn't preview later parts.
+        st["java"] = re.sub(r"    /\*\* Part [2-9]\..*?\n    }\n\n", "", st["java"], flags=re.S)
         legacy[pid] = dict(legacy[pid], starters=st, javaClass=cls)
 
     def bank(ps):

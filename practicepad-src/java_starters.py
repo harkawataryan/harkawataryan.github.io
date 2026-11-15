@@ -33,22 +33,8 @@ MAIN}
 """)
 
 S["tetris"] = ("Tetris", """public class Tetris {
-    // How you represent pieces and the board is up to you.
-
-    public Tetris(int rows, int cols) {
-    }
-
-    /** One timestep: the active piece falls one row (and locks if it can't). */
-    public void tick() {
-    }
-
-    public boolean moveLeft() { return false; }
-    public boolean moveRight() { return false; }
-    public boolean moveDown() { return false; }
-    public boolean rotateClockwise() { return false; }
-    public boolean rotateCounterclockwise() { return false; }
-
-    public boolean isGameOver() { return false; }
+    // The API is yours to design: how pieces arrive, how moves and rotation are exposed,
+    // and how time advances. Agree on it with the interviewer before coding.
 
 MAIN}
 """)
@@ -341,11 +327,12 @@ MAIN}
 """)
 
 S["potion-brewing"] = ("PotionBrewing", """public class PotionBrewing {
-    /** A spell consumes some counts of ingredients and produces others (index 0 = 'a'). */
-    public record Spell(int[] consumes, int[] produces) {}
-
-    /** counts has 26 entries, one per letter. Returns the letters that can be increased. */
-    public static Set<Character> canIncrease(int[] counts, List<Spell> spells) {
+    /**
+     * counts has 26 entries, one per letter. Each spell is given as a string, e.g. "2a+b->3c"
+     * (consumes 2 a and 1 b, produces 3 c). How you represent spells is up to you.
+     * Returns the letters that can be increased.
+     */
+    public static Set<Character> canIncrease(int[] counts, List<String> spells) {
         return new TreeSet<>();
     }
 
@@ -367,11 +354,8 @@ MAIN}
 """)
 
 S["merkle-tree"] = ("MerkleTree", """public class MerkleTree {
-    public static class Node {
-        final String value;
-        final Node left, right;
-        public Node(String value, Node left, Node right) { this.value = value; this.left = left; this.right = right; }
-    }
+    // A node's hash is SHA256(value || hash(left) || hash(right)), with "" for a missing child.
+    // Representing the tree (immutable, with cached hashes) is part of the question.
 
     /** Provided: hex SHA-256 of s. */
     static String sha256(String s) {
@@ -383,16 +367,6 @@ S["merkle-tree"] = ("MerkleTree", """public class MerkleTree {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    /** hash(node) = sha256(value + hash(left) + hash(right)), "" for a missing child. */
-    public static String hash(Node node) {
-        return "";
-    }
-
-    /** Does the client's subtree appear in the server's tree? */
-    public static boolean containsSubtree(Node server, Node client) {
-        return false;
     }
 
 MAIN}
@@ -482,54 +456,17 @@ MAIN}
 """)
 
 S["text-editor"] = ("TextEditor", """public class TextEditor {
-    public void insert(String text) {
-    }
-
-    /** Deletes the character before the cursor. */
-    public void backspace() {
-    }
-
-    /** Deletes the character after the cursor. */
-    public void delete() {
-    }
-
-    /** Moves the cursor by delta characters (negative = left), clamped to the document. */
-    public void moveCursor(int delta) {
-    }
-
-    public String getText() {
-        return "";
-    }
-
-    public int getCursor() {
-        return 0;
-    }
+    // Required: insert text at the cursor, backspace, delete forward, and move the cursor.
+    // The method signatures and how you store the text are yours to design.
 
 MAIN}
 """)
 
 S["supermarket-queue"] = ("Supermarket", """public class Supermarket {
-    public Supermarket(int numLines) {
-    }
-
-    public void addCustomer(int line, String customerId, int items) {
-    }
-
-    public void updateItems(String customerId, int items) {
-    }
-
-    /** Processes x items in one line. */
-    public void processItems(int line, int x) {
-    }
-
-    /** Processes one item in every line. */
-    public void processOneItemEachLine() {
-    }
-
-    /** Customers in the order they left. */
-    public List<String> departed() {
-        return new ArrayList<>();
-    }
+    // Required: add a customer to a line; change a customer's remaining item count;
+    // process x items in one line; process one item in every line;
+    // output customers in the order they leave.
+    // The method signatures and data structures are yours to design.
 
 MAIN}
 """)
@@ -591,7 +528,9 @@ S["stream-comparison"] = ("StreamComparison", """public class StreamComparison {
 MAIN}
 """)
 
-S["video-player"] = ("VideoPlayer", """/** Provided. Only one download may run at a time. */
+S["video-player"] = ("VideoPlayer", """// The provided interfaces below are a guess at the real API; the interviewer's may differ.
+
+/** Provided. Only one download may run at a time. */
 interface Network {
     void download(int chunk, int quality, Runnable onDone);
 }
@@ -668,13 +607,7 @@ S["string-compression"] = ("StringCompression", """public class StringCompressio
 MAIN}
 """)
 
-S["message-queue"] = ("MessageRouter", """class Worker {
-    final String id;
-    final int capacity;
-    int load;
-    final Set<String> types;
-    Worker(String id, int capacity, Set<String> types) { this.id = id; this.capacity = capacity; this.types = types; }
-}
+S["message-queue"] = ("MessageRouter", """record Worker(String id, int capacity, Set<String> types) {}
 
 record Message(String id, String type, int size, long timestamp) {}
 
@@ -750,7 +683,9 @@ S["sole-mate-review"] = ("SoleMateReview", """public class SoleMateReview {
 MAIN}
 """)
 
-S["cluster-scaling"] = ("ClusterManager", """/** Provided low-level VM APIs (reported as GET -> SSH -> RUN). */
+S["cluster-scaling"] = ("ClusterManager", """// The provided interface below is a guess at the real API; in the interview you read their codebase first.
+
+/** Provided low-level VM APIs (reported as GET -> SSH -> RUN). */
 interface VmApi {
     /** Looks up the VM behind an endpoint; returns its host. */
     String get(String endpoint);
