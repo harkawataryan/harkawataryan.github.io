@@ -702,14 +702,22 @@ def run_only(p):
 
 
 def main():
-    import bank_a, bank_b, bank_c
+    import bank_a, bank_b, bank_c, java_starters
     legacy = {P["id"]: run_only(generic(P)) for P in problems.ALL}
     legacy["watchlist"] = run_only(watchlist())
+    for pid, cls in {"fold": "CodeFolding", "stack": "StackInterpreter", "accum": "Accumulator", "towers": "Towers",
+                     "wizard": "Wizard", "loadout": "Loadout", "dice": "Dice"}.items():
+        st = dict(legacy[pid]["starters"])
+        st["java"] = st["java"].replace("public class Solution {", "public class " + cls + " {", 1)
+        legacy[pid] = dict(legacy[pid], starters=st, javaClass=cls)
 
     def bank(ps):
         out = []
         for p in ps:
             d = dict(p, fnames={}, javaClass="Solution", starters=bank_starters(p["title"]))
+            js = java_starters.java_starter(p["id"], p["title"])
+            if js:
+                d["javaClass"], d["starters"]["java"] = js
             out.append(d)
         return out
 
