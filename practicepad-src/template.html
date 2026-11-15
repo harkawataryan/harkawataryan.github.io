@@ -191,7 +191,7 @@ body.resizing{cursor:col-resize;user-select:none}
           <label>Claude API key <input type="password" id="chatkey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"></label>
           <label>Model <select id="chatmodel"><option value="claude-sonnet-5-5">Sonnet 5.5 (fast)</option><option value="claude-opus-5-5">Opus 5.5 (smartest)</option><option value="claude-haiku-5-5">Haiku 5.5 (cheapest)</option></select></label>
           <label><input type="checkbox" id="chatcode" checked> Share my code and last output with the interviewer</label>
-          <div class="meta" style="margin:0">The key is saved only in this browser (localStorage) and sent only to api.anthropic.com. Never commit it to the repo.</div>
+          <div style="display:flex;gap:10px;align-items:center"><div class="meta" style="margin:0;flex:1">The key is saved only in this browser and sent only to api.anthropic.com.</div><button class="btn sm" id="chatcfgdone">Done</button></div>
         </div>
         <div class="chatlog" id="chatlog"></div>
         <div class="chatin"><textarea id="chatmsg" rows="1" placeholder="Think out loud, or ask for a hint…" title="Enter sends, Shift+Enter for a new line"></textarea><button class="btn primary" id="chatsend">Send</button></div>
@@ -741,7 +741,11 @@ Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bu
   const chatlog = $("#chatlog"), chatmsg = $("#chatmsg"), chatsend = $("#chatsend");
   let chatBusy = false;
   $("#chatkey").value = LS.get("pad2.apikey", "");
-  $("#chatkey").addEventListener("change", () => LS.set("pad2.apikey", $("#chatkey").value.trim()));
+  function saveKey() { LS.set("pad2.apikey", $("#chatkey").value.trim()); }
+  $("#chatkey").addEventListener("change", saveKey);
+  $("#chatkey").addEventListener("keydown", (e) => { if (e.key === "Enter") { saveKey(); closeCfg(); } });
+  function closeCfg() { saveKey(); $("#chatcfg").classList.add("hid"); if (!LS.get(chatKey(), []).length) renderChat(); chatmsg.focus(); }
+  $("#chatcfgdone").addEventListener("click", closeCfg);
   $("#chatmodel").value = LS.get("pad2.model", "claude-sonnet-5-5");
   $("#chatmodel").addEventListener("change", () => LS.set("pad2.model", $("#chatmodel").value));
   $("#chatcode").checked = LS.get("pad2.chatcode", true);
