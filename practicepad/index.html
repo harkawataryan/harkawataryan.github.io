@@ -203,7 +203,14 @@ select.picker{max-width:22rem}
 .editor.monaco-on #monaco{display:block;position:absolute;inset:0}
 .actoggle{font-size:12.5px}
 .actoggle[aria-pressed="true"]{color:var(--accent)}
-.chatpanel:not(.hid){display:flex;flex-direction:column;padding:0;overflow:hidden}
+.main{position:relative;grid-template-columns:var(--railw,32%) minmax(0,1fr) var(--chatw,25%)}
+.split{position:absolute;top:0;bottom:0;width:9px;margin-left:-4px;cursor:col-resize;z-index:6;touch-action:none}
+.split:hover,.split.drag{background:var(--info-soft)}
+#split1{left:var(--railw,32%)}
+#split2{left:calc(100% - var(--chatw,25%))}
+body.resizing{cursor:col-resize;user-select:none}
+.chatcol{display:flex;flex-direction:column;min-height:0;min-width:0;border-left:1px solid var(--line);background:var(--bg)}
+@media (max-width: 860px){.main{grid-template-columns:1fr;grid-template-rows:auto auto auto}.chatcol{border-left:0;border-top:1px solid var(--line);height:70vh}.split{display:none}}
 .chathead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
 .chathead .t{flex:1;min-width:0}
 .chatcfg{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px;font-size:13px;background:var(--panel)}
@@ -241,31 +248,18 @@ select.picker{max-width:22rem}
     <button class="btn primary" id="run" title="Ctrl/Cmd + Enter runs your code">▶ Run</button>
   </header>
 
-  <div class="main">
+  <div class="main" id="main">
+    <div class="split" id="split1" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+    <div class="split" id="split2" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
     <aside class="rail">
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" aria-selected="true" data-tab="q">Question</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="c">Ask</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="i">Interviewer</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="r">Rubric <span class="pill" id="rscore">0/10</span></button>
         <button class="tab" role="tab" aria-selected="false" data-tab="s">Solution</button>
       </div>
 
       <section class="panel" id="tab-q" role="tabpanel"></section>
-
-      <section class="panel hid chatpanel" id="tab-c" role="tabpanel">
-        <div class="chathead"><span class="t">A mock interviewer for this problem. It hints, it doesn't solve. It sees your code and last output.</span>
-          <button class="btn sm ghost" id="chatclear" title="Start this problem's conversation over">Clear</button>
-          <button class="btn sm ghost" id="chatcfgbtn" title="API key and model">Settings</button></div>
-        <div class="chatcfg hid" id="chatcfg">
-          <label>Claude API key <input type="password" id="chatkey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"></label>
-          <label>Model <select id="chatmodel"><option value="claude-sonnet-5-5">Sonnet 5.5 (fast)</option><option value="claude-opus-5-5">Opus 5.5 (smartest)</option><option value="claude-haiku-5-5">Haiku 5.5 (cheapest)</option></select></label>
-          <label><input type="checkbox" id="chatcode" checked> Share my code and last output with the interviewer</label>
-          <div class="meta" style="margin:0">The key is saved only in this browser (localStorage) and sent only to api.anthropic.com. Never commit it to the repo.</div>
-        </div>
-        <div class="chatlog" id="chatlog"></div>
-        <div class="chatin"><textarea id="chatmsg" rows="1" placeholder="Think out loud, or ask for a hint…" title="Enter sends, Shift+Enter for a new line"></textarea><button class="btn primary" id="chatsend">Send</button></div>
-      </section>
 
       <section class="panel hid" id="tab-i" role="tabpanel">
         <h2>Interviewer</h2>
@@ -367,6 +361,19 @@ select.picker{max-width:22rem}
         <div class="out" id="out"><span class="dim">Nothing yet.</span></div>
       </div>
     </section>
+      <aside class="chatcol" id="chatcol" aria-label="Interviewer chat">
+        <div class="chathead"><span class="t"><b style="color:var(--fg)">Interviewer</b> · hints, not answers. Sees your code and last output.</span>
+          <button class="btn sm ghost" id="chatclear" title="Start this problem's conversation over">Clear</button>
+          <button class="btn sm ghost" id="chatcfgbtn" title="API key and model">Settings</button></div>
+        <div class="chatcfg hid" id="chatcfg">
+          <label>Claude API key <input type="password" id="chatkey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"></label>
+          <label>Model <select id="chatmodel"><option value="claude-sonnet-5-5">Sonnet 5.5 (fast)</option><option value="claude-opus-5-5">Opus 5.5 (smartest)</option><option value="claude-haiku-5-5">Haiku 5.5 (cheapest)</option></select></label>
+          <label><input type="checkbox" id="chatcode" checked> Share my code and last output with the interviewer</label>
+          <div class="meta" style="margin:0">The key is saved only in this browser (localStorage) and sent only to api.anthropic.com. Never commit it to the repo.</div>
+        </div>
+        <div class="chatlog" id="chatlog"></div>
+        <div class="chatin"><textarea id="chatmsg" rows="1" placeholder="Think out loud, or ask for a hint…" title="Enter sends, Shift+Enter for a new line"></textarea><button class="btn primary" id="chatsend">Send</button></div>
+      </aside>
   </div>
 </div>
 
@@ -505,7 +512,7 @@ select.picker{max-width:22rem}
   // ---------- tabs ----------
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
-    ["q", "c", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
+    ["q", "i", "r", "s"].forEach((k) => $("#tab-" + k).classList.toggle("hid", k !== t.dataset.tab));
   }));
 
   // ---------- editor ----------
@@ -1018,6 +1025,37 @@ Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bu
   chatsend.addEventListener("click", sendChat);
   chatmsg.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); } });
   chatmsg.addEventListener("input", () => { chatmsg.style.height = "auto"; chatmsg.style.height = Math.min(chatmsg.scrollHeight, 160) + "px"; });
+
+  // ---------- draggable pane dividers ----------
+  (function splitters() {
+    const main = $("#main");
+    const MIN_SIDE = 220, MIN_CODE = 320;
+    function apply(rail, chat) {
+      if (rail) main.style.setProperty("--railw", rail + "px");
+      if (chat) main.style.setProperty("--chatw", chat + "px");
+    }
+    apply(LS.get("pad2.railw", 0), LS.get("pad2.chatw", 0));
+    function drag(id, which) {
+      const h = $(id);
+      h.addEventListener("pointerdown", (e) => {
+        e.preventDefault(); h.setPointerCapture(e.pointerId); h.classList.add("drag"); document.body.classList.add("resizing");
+        const r = main.getBoundingClientRect();
+        const railNow = $(".rail").getBoundingClientRect().width, chatNow = $("#chatcol").getBoundingClientRect().width;
+        const move = (ev) => {
+          if (which === "rail") { const w = Math.max(MIN_SIDE, Math.min(ev.clientX - r.left, r.width - chatNow - MIN_CODE)); apply(Math.round(w), 0); }
+          else { const w = Math.max(MIN_SIDE, Math.min(r.right - ev.clientX, r.width - railNow - MIN_CODE)); apply(0, Math.round(w)); }
+        };
+        const up = () => {
+          h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up); h.removeEventListener("pointercancel", up);
+          h.classList.remove("drag"); document.body.classList.remove("resizing");
+          LS.set("pad2." + (which === "rail" ? "railw" : "chatw"), Math.round((which === "rail" ? $(".rail") : $("#chatcol")).getBoundingClientRect().width));
+        };
+        h.addEventListener("pointermove", move); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+      });
+      h.addEventListener("dblclick", () => { main.style.removeProperty(which === "rail" ? "--railw" : "--chatw"); LS.set("pad2." + (which === "rail" ? "railw" : "chatw"), 0); });
+    }
+    drag("#split1", "rail"); drag("#split2", "chat");
+  })();
 
   // ---------- switching problems ----------
   function selectProblem(id) {
