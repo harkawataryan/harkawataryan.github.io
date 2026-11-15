@@ -640,6 +640,10 @@ body.resizing{cursor:col-resize;user-select:none}
     }, acOptions()));
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runCode());
     editor.onDidChangeModelContent(() => { if (monSetting) return; ta.value = editor.getValue(); LS.set(key("code." + lang), ta.value); });
+    // Monaco measures character widths once; if JetBrains Mono arrives later the caret drifts off the text. Re-measure when it loads.
+    const remeasure = () => { try { monaco.editor.remeasureFonts(); editor.layout(); } catch (e) {} };
+    try { document.fonts.load('13.5px "JetBrains Mono"').then(remeasure); document.fonts.ready.then(remeasure); } catch (e) {}
+    setTimeout(remeasure, 1500);
     mon = { monaco, editor };
     $("#editor").classList.add("monaco-on");
     $("#actoggle").classList.remove("hid"); paintAc();
