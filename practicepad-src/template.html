@@ -927,7 +927,7 @@ Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bu
 
   // ---------- switching problems ----------
   function selectProblem(id) {
-    if (!BY_ID[id]) id = PROBLEMS[0].id;
+    if (!BY_ID[id]) id = inTrack()[0].id;
     P = BY_ID[id];
     setTrack(trackOf(P));
     picker.value = id;
