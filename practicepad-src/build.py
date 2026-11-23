@@ -743,7 +743,8 @@ def main():
     ]
     # Problem sets in the top bar: Jane Street (everything above) and Databricks.
     db_groups = [
-        ("Databricks SWE intern", [dict(p, starters=plain_starters()) for p in bank(bank_db.DATABRICKS)]),
+        ("Most reported: do these first", [dict(p, starters=plain_starters()) for p in bank(bank_db.DATABRICKS)]),
+        ("Also reported", [dict(p, starters=plain_starters()) for p in bank(bank_db.DATABRICKS_MORE)]),
     ]
     probs = []
     for company, gs in (("js", groups), ("db", db_groups)):
