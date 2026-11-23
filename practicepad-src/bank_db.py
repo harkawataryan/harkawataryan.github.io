@@ -7,7 +7,7 @@ from bank_a import P, q
 
 MODES = P(
     "modes-of-transport", "Modes of Transport",
-    "Fastest single-mode path on a grid → one BFS instead of one per mode → switching modes",
+    "Fastest mode from S to D on a grid, then three follow-ups",
     "The most-reported Databricks intern question (phone screen and onsite). Parts 3–4 are reported follow-ups.",
     """<p>You're given a 2D grid of a city with a source <code>S</code>, a destination <code>D</code>, and roadblocks <code>X</code>:</p>
 <pre class="treebox">1 2 3 S 1 2 4
@@ -78,9 +78,9 @@ IP_FIREWALL = P(
          ("DENY",  "10.0.0.0/8"),
          ("ALLOW", "10.1.2.3")]
 
-query("192.168.100.4") → "ALLOW"   # /30 covers .4 to .7
-query("192.168.100.8") → "DENY"    # no rule matches
-query("10.1.2.3")      → "DENY"    # the /8 rule comes first
+query("192.168.100.4") → "ALLOW"
+query("192.168.100.8") → "DENY"
+query("10.1.2.3")      → "DENY"
 query("8.8.8.8")       → "DENY"</pre>"""),
         ("Check a whole block", q("Now the query can be a CIDR block, not just one address. What's the status of the whole block?") + """
 <p>Return <code>"ALLOW"</code> if every address in the block is allowed, <code>"DENY"</code> if every one is denied, and <code>"MIXED"</code> otherwise.</p>
@@ -104,14 +104,14 @@ query("8.8.8.8")       → "DENY"</pre>"""),
 
 TIC_TAC_TOE = P(
     "tic-tac-toe", "N × N Tic-Tac-Toe",
-    "Winner after each move in O(1) → m × n board with k in a row",
+    "Winner after each move → bigger boards → m × n with k in a row",
     "Reported for Databricks interns and on several question lists (LeetCode 348 and variants).",
     q("Build the game logic for tic-tac-toe on any board size. No UI."),
     [
         ("Who won?", """
 <p>Implement <code>TicTacToe(n)</code> and <code>move(row, col, player)</code> for players 1 and 2. Return the winner if this move completes a full row, column or diagonal, else 0. Ignore invalid moves (off the board or on a taken cell) and return 0.</p>
 <p>Example on 3 × 3: moves (0,0,1), (0,2,2), (2,2,1), (1,1,2), (2,0,1), (1,0,2), (2,1,1) return 0, 0, 0, 0, 0, 0, 1. Player 1 completes the bottom row.</p>"""),
-        ("Faster", q("Your move checks the whole row, column and diagonals. Can a move be O(1)?")),
+        ("Big boards", q("Boards can now be 10,000 × 10,000, and move is called constantly. What does a move cost, and can you do better?")),
         ("k in a row", q("Now the board is m × n and you win with k in a row, not a full line.") + """
 <p>Rows, columns and both diagonal directions all count. <code>k ≤ min(m, n)</code>.</p>"""),
     ],
@@ -133,15 +133,15 @@ TIC_TAC_TOE = P(
 
 HIT_COUNTER = P(
     "hit-counter", "Rolling Hit Counter",
-    "Count hits in a sliding time window → bounded memory → out-of-order timestamps",
-    "Reported Databricks onsite question; also listed as \"hash map with QPS\" (LeetCode 362 family).",
+    "Count hits in a sliding time window → huge traffic → out-of-order timestamps",
+    "Reported Databricks onsite question (LeetCode 362 family).",
     q("Count requests over a sliding time window."),
     [
         ("Count hits", """
 <p>Implement <code>simulate_hit_counter(window, operations)</code>. An operation <code>[0, t]</code> records a hit at time t. An operation <code>[1, t]</code> returns the number of hits in <code>(t − window, t]</code>, so a hit exactly <code>window</code> old has expired. Duplicate timestamps count separately. Timestamps never decrease. Return the answers to the <code>[1, t]</code> operations, in order.</p>
 <pre class="treebox">window 5, [[0,1],[0,1],[1,1],[0,3],[1,5],[1,6],[1,8]]  →  [2, 3, 1, 0]
 window 3, [[1,10],[0,10],[1,10],[0,10],[1,10],[1,12],[1,13]]  →  [0, 1, 2, 2, 0]</pre>"""),
-        ("Millions of hits a second", q("Now traffic is huge, and one timestamp can have millions of hits. Keep memory bounded.")),
+        ("Millions of hits a second", q("Now traffic is huge: millions of hits a second, many with the same timestamp. What does your memory use look like?")),
         ("Out of order", q("Timestamps can now arrive slightly out of order. What changes?"), "talk"),
     ],
     clarify=[
@@ -161,7 +161,7 @@ window 3, [[1,10],[0,10],[1,10],[0,10],[1,10],[1,12],[1,13]]  →  [0, 1, 2, 2, 
 
 FIB_TREE = P(
     "fibonacci-tree-path", "Fibonacci Tree Path",
-    "Directions between two preorder-numbered nodes of a huge implicit tree",
+    "Directions between two nodes of a Fibonacci tree → order 70",
     "Reported Databricks onsite question; also on the new grad question lists.",
     q("A Fibonacci tree of order n has a left subtree of order n − 1 and a right subtree of order n − 2. Orders 0 and 1 are a single node. Nodes are numbered in preorder starting at 0."),
     [
@@ -170,8 +170,8 @@ FIB_TREE = P(
 <pre class="treebox">fibonacci_tree_path(4, 4, 7)   → "UUURL"
 fibonacci_tree_path(4, 1, 4)   → "LR"
 fibonacci_tree_path(5, 12, 6)  → "UUULLR"</pre>
-<p>An order-4 tree has 9 nodes and an order-5 tree has 15. Draw the order-4 one first.</p>"""),
-        ("Order 70", q("Now the order goes up to 70. That's about 6 × 10<sup>14</sup> nodes.") + "<p>Don't build the tree. Labels need 64-bit integers.</p>"),
+"""),
+        ("Order 70", q("Now the order goes up to 70.") + "<p>Labels need 64-bit integers.</p>"),
     ],
     clarify=[
         ("Is the tree given to me?", "No, only the order. You work out its shape."),
@@ -190,7 +190,7 @@ fibonacci_tree_path(5, 12, 6)  → "UUULLR"</pre>
 
 REVENUE = P(
     "revenue-system", "Referral Revenue System",
-    "Customers with referrers → top k by revenue including referrals → indirect referrals, threads",
+    "Customers with referrers → top k by revenue → indirect referrals → many threads",
     "Reported Databricks coding round (concurrency-focused). A version with indirect referrals is also on the question lists.",
     q("Track customer revenue, where a customer gets credit for revenue from the customers they referred."),
     [
@@ -228,13 +228,13 @@ get_top_k(2, 10) → {0, 1}
 
 LOGGER = P(
     "thread-safe-logger", "Thread-Safe Logger",
-    "Many writers, no interleaving → a queue and one writer thread → what to do when it's full",
-    "Reported in the Databricks concurrency round (\"an efficient logger that processes messages in a queue\"). Durable-writer versions are also on the question lists.",
+    "Many writers, no interleaving → a slow disk → bursts and shutdown",
+    "Reported in the Databricks concurrency round. Durable-writer versions are also on the question lists.",
     q("Many threads call <code>log(message)</code>. Lines must never interleave, and logging shouldn't slow the callers down much."),
     [
         ("Make it safe", "<p>Write a <code>Logger</code> with <code>log(message)</code> that's safe to call from many threads. Each message comes out as one whole line.</p><p class=\"meta\">Java is the natural language here. Python's <code>threading</code> works too; JavaScript has no shared-memory threads.</p>"),
-        ("Don't block the callers", q("Writing to disk is slow, and holding a lock during the write makes every caller wait. Move the writing off the callers' threads.")),
-        ("Queue is full", q("The writer can't keep up and the queue fills. What do you do? Then: how does the program shut down without losing messages?")),
+        ("Slow disk", q("Writing to disk is slow. log() should return quickly even while the disk is busy.")),
+        ("Bursts and shutdown", q("For a while, messages arrive faster than the disk can take them. What happens in your design? Then: how does the program shut down without losing messages?")),
     ],
     nudges=[
         ("You hold the lock while writing to the file", "What are the other 100 threads doing during that write?",
@@ -318,7 +318,7 @@ it = iterator()
 remove(2); add(4)
 list(it)   → [1, 2, 3]
 contains(2) → false</pre>"""),
-        ("Cheap snapshots", q("Copying the whole set per iterator is too slow when the set is big and iterators are common. Make iterator() O(1).")),
+        ("Cheap snapshots", q("The set is now huge and iterators are created constantly. What does iterator() cost? Make it O(1).")),
     ],
     nudges=[
         ("iterator() copies the set", "What does that cost with a million elements and an iterator per request?",
@@ -369,7 +369,7 @@ HOUSE_ROBBER = P(
 
 ISLAND = P(
     "max-area-island", "Max Area of Island",
-    "Largest connected group of 1s in a grid",
+    "Largest connected group of 1s in a grid → a grid too big for memory",
     "Reported Databricks coding question (LeetCode 695).",
     q("A grid of 0s (water) and 1s (land). Land connects up, down, left and right."),
     [
@@ -416,7 +416,7 @@ QUERY_PLAN = P(
     q("A query plan is a tree of <code>Scan(table, columns)</code>, <code>Filter(predicate, child)</code>, <code>Project(columns, child)</code> and <code>Join(left, right, key)</code> nodes. Each predicate knows which columns it uses."),
     [
         ("Prune columns", "<p>Rewrite the plan so every Scan reads only the columns something above it actually uses: the final output, a filter, or a join key.</p>"),
-        ("Push filters down", q("Now move each Filter as close to the Scans as it can go.") + "<p>A filter can move below a Project if it only uses columns the Project keeps, and below a Join onto the side that has all its columns. Split <code>A AND B</code> predicates so each part can move separately.</p>"),
+        ("Push filters down", q("Now move each Filter as close to the Scans as it can go.") + "<p>A filter can move below a Project if it only uses columns the Project keeps, and below a Join onto the side that has all its columns.</p>"),
     ],
     nudges=[
         ("You prune top-down and forget the join keys", "Does a Join need its key column even if nobody above uses it?",
