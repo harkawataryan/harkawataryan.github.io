@@ -54,7 +54,11 @@ body.resizing{cursor:col-resize;user-select:none}
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="dot"></span>PracticePad <small>Jane Street SWE Intern · Question bank, in priority order</small></div>
+    <div class="brand"><span class="dot"></span>PracticePad <small id="brandsub">Jane Street SWE Intern · Question bank, in priority order</small></div>
+    <select class="lang" id="track" aria-label="Problem set">
+      <option value="js">Jane Street</option>
+      <option value="db">Databricks</option>
+    </select>
     <select class="picker" id="problem" aria-label="Problem"></select>
     <select class="lang" id="lang" aria-label="Language">
       <option value="python">Python 3</option>
@@ -92,8 +96,8 @@ body.resizing{cursor:col-resize;user-select:none}
         <h3>The nudge ladder</h3>
         <p class="meta">If you hear one of these, your current code has a specific problem. Open a nudge only when you'd have earned it.</p>
         <div id="nudges"></div>
-        <h3>How round 1 actually runs</h3>
-        <ul>
+        <h3 class="co-js">How round 1 actually runs</h3>
+        <ul class="co-js">
           <li>45–60 minutes on Zoom with a shared pad. Usually one problem that grows in parts, not several problems.</li>
           <li>Interns get class-building and implementation problems with an emphasis on clean code, not algorithm trivia. Jane Street says their questions are open-ended, with several reasonable approaches.</li>
           <li>Interviewers may stay quiet. Silence is not a verdict. Keep narrating.</li>
@@ -116,7 +120,7 @@ body.resizing{cursor:col-resize;user-select:none}
 
       <section class="panel hid" id="tab-r" role="tabpanel">
         <h2>What gets graded</h2>
-        <div class="meta">Paraphrased from Jane Street's own prep page and interviewing blog post. The one thing they repeat: the main question is whether they'd want to work with you, and the interview is a simulation of working with you.</div>
+        <div class="meta co-js">Paraphrased from Jane Street's own prep page and interviewing blog post. The one thing they repeat: the main question is whether they'd want to work with you, and the interview is a simulation of working with you.</div>
         <ul>
           <li><b>Be nice.</b> Pleasant and collaborative. They say plainly that brilliance doesn't get you hired if you aren't pleasant to work with.</li>
           <li><b>Be clear.</b> Simple and to the point. Use examples. Don't use a term you can't define on the spot.</li>
@@ -251,14 +255,40 @@ body.resizing{cursor:col-resize;user-select:none}
   })();
 
   // ---------- problem picker ----------
-  const picker = $("#problem");
-  (function buildPicker() {
+  // ---------- problem sets (Jane Street / Databricks) ----------
+  const TRACKS = {
+    js: { name: "Jane Street", sub: "Jane Street SWE Intern · Question bank, in priority order" },
+    db: { name: "Databricks", sub: "Databricks SWE Intern practice" },
+  };
+  const trackOf = (p) => (p.company in TRACKS ? p.company : "js");
+  let track = LS.get("pad2.track", "js");
+  if (!TRACKS[track]) track = "js";
+  const inTrack = () => PROBLEMS.filter((p) => trackOf(p) === track);
+  const picker = $("#problem"), trackSel = $("#track");
+  function buildPicker() {
+    picker.innerHTML = "";
     let group = null, og = null;
-    PROBLEMS.forEach((p, i) => {
+    inTrack().forEach((p, i) => {
       if (p.group !== group) { group = p.group; og = document.createElement("optgroup"); og.label = group; picker.append(og); }
       const o = document.createElement("option"); o.value = p.id; o.textContent = (i + 1) + " · " + p.title; og.append(o);
     });
-  })();
+  }
+  function applyTrack() {
+    trackSel.value = track;
+    $("#brandsub").textContent = TRACKS[track].sub;
+    document.querySelectorAll(".co-js").forEach((el) => { el.hidden = track !== "js"; });
+    buildPicker();
+  }
+  function setTrack(t) {
+    if (!TRACKS[t] || t === track) return;
+    track = t; LS.set("pad2.track", t); applyTrack();
+  }
+  applyTrack();
+  trackSel.addEventListener("change", () => {
+    setTrack(trackSel.value);
+    const list = inTrack();
+    selectProblem(list.some((p) => p.id === LS.get("pad2.problem." + track, "")) ? LS.get("pad2.problem." + track, "") : list[0].id);
+  });
   picker.addEventListener("change", () => selectProblem(picker.value));
   window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (BY_ID[id] && (!P || P.id !== id)) selectProblem(id); });
 
@@ -272,8 +302,8 @@ body.resizing{cursor:col-resize;user-select:none}
   function renderQuestion() {
     const q = $("#tab-q");
     const nCode = P.parts.filter((p) => !p.discussion).length;
-    const idx = PROBLEMS.indexOf(P), prev = PROBLEMS[idx - 1], next = PROBLEMS[idx + 1];
-    let html = `<div class="probnav"><button class="btn sm ghost" data-pick="${prev ? prev.id : ""}" ${prev ? "" : "disabled"}>← Prev</button><span class="grp">#${idx + 1} of ${PROBLEMS.length} · ${escHtml(P.group)}</span><button class="btn sm ghost" data-pick="${next ? next.id : ""}" ${next ? "" : "disabled"}>Next →</button></div>`;
+    const list = inTrack(), idx = list.indexOf(P), prev = list[idx - 1], next = list[idx + 1];
+    let html = `<div class="probnav"><button class="btn sm ghost" data-pick="${prev ? prev.id : ""}" ${prev ? "" : "disabled"}>← Prev</button><span class="grp">#${idx + 1} of ${list.length} · ${escHtml(P.group)}</span><button class="btn sm ghost" data-pick="${next ? next.id : ""}" ${next ? "" : "disabled"}>Next →</button></div>`;
     const nTalk = P.parts.length - nCode;
     html += `<h2>${escHtml(P.title)}</h2><div class="meta">${escHtml(P.tagline)}. ${nCode} coding part${nCode === 1 ? "" : "s"}${nTalk ? " and a discussion part" : ""}; open each part when you're done with the last. Budget: 45 minutes.</div>`;
     html += `<div class="source">${escHtml(P.source)}</div>`;
@@ -825,7 +855,7 @@ Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bu
         headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: LS.get("pad2.model", "claude-sonnet-5-5"), max_tokens: 8192, stream: true,
-          system: [{ type: "text", text: INTERVIEWER_RULES }, { type: "text", text: problemContext(), cache_control: { type: "ephemeral" } }],
+          system: [{ type: "text", text: INTERVIEWER_RULES.replaceAll("Jane Street", TRACKS[trackOf(P)].name) }, { type: "text", text: problemContext(), cache_control: { type: "ephemeral" } }],
           messages: apiMessages(hist),
         }),
       });
@@ -899,8 +929,10 @@ Style: short, plain, conversational, 1 to 4 sentences usually. No headers, no bu
   function selectProblem(id) {
     if (!BY_ID[id]) id = PROBLEMS[0].id;
     P = BY_ID[id];
+    setTrack(trackOf(P));
     picker.value = id;
     LS.set("pad2.problem", id);
+    LS.set("pad2.problem." + track, id);
     if (location.hash.slice(1) !== id) history.replaceState(null, "", "#" + id);
     document.title = P.title + " · Practice Pad";
     maxPart = LS.get(key("maxPart"), 1);

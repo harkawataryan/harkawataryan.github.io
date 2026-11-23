@@ -702,7 +702,7 @@ def run_only(p):
 
 
 def main():
-    import bank_a, bank_b, bank_c, java_starters
+    import bank_a, bank_b, bank_c, bank_db, java_starters
     legacy = {P["id"]: run_only(generic(P)) for P in problems.ALL}
     legacy["watchlist"] = run_only(watchlist())
     _wst = dict(legacy["watchlist"]["starters"])
@@ -735,11 +735,17 @@ def main():
         ("Experimental onsite formats", bank(bank_c.TIER4)),
         ("Unverified reports", bank(bank_c.TIER5)),
     ]
+    # Problem sets in the top bar: Jane Street (everything above) and Databricks.
+    db_groups = [
+        ("Databricks SWE intern", bank(bank_db.DATABRICKS)),
+    ]
     probs = []
-    for label, ps in groups:
-        for p in ps:
-            p["group"] = label
-            probs.append(p)
+    for company, gs in (("js", groups), ("db", db_groups)):
+        for label, ps in gs:
+            for p in ps:
+                p["group"] = label
+                p["company"] = company
+                probs.append(p)
     ids = [p["id"] for p in probs]
     assert len(ids) == len(set(ids)), "duplicate ids"
     data = {"problems": probs}
