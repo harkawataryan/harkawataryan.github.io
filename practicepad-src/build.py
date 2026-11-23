@@ -642,6 +642,12 @@ def bank_starters(title):
             "    public static void main(String[] args) {\n    }\n}\n")
     return {"python": py, "javascript": js, "java": java}
 
+def plain_starters():
+    """Starters with no header comments (Databricks set)."""
+    return {"python": "def main():\n    pass\n\n\nif __name__ == \"__main__\":\n    main()\n",
+            "javascript": "function main() {\n}\n\nmain();\n",
+            "java": "import java.util.*;\n\npublic class Solution {\n\n    public static void main(String[] args) {\n    }\n}\n"}
+
 _FOLD_LINES = ["def outer() {", "  before();", "  if (ready) {", "    work();", "  }", "  after();", "}", "done();"]
 _FOLD_OPS = ["MATCH", "TOGGLE 2", "GET", "TOGGLE 0", "GET", "TOGGLE_LINE 0", "GET_RANGE 1 3"]
 DEMOS = {
@@ -737,7 +743,7 @@ def main():
     ]
     # Problem sets in the top bar: Jane Street (everything above) and Databricks.
     db_groups = [
-        ("Databricks SWE intern", bank(bank_db.DATABRICKS)),
+        ("Databricks SWE intern", [dict(p, starters=plain_starters()) for p in bank(bank_db.DATABRICKS)]),
     ]
     probs = []
     for company, gs in (("js", groups), ("db", db_groups)):
