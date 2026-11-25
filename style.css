@@ -336,6 +336,13 @@ h1 .line > span { display: inline-block; }
 /* Live Herd simulation: four policies on identical traffic, one shown on
    the canvas and all four ranked on the scoreboard beneath. */
 .project .shot.has-sim { cursor: default; }
+/* The live Herd demo fades in over its screenshot. Keep the screenshot hidden
+   from the first paint so it never flashes underneath while the script loads;
+   it only shows where the demo doesn't run (no JavaScript, reduced motion, or
+   no canvas, which herd.js marks with .no-sim). */
+@media (prefers-reduced-motion: no-preference) {
+  .js .project .shot[data-live-herd]:not(.no-sim) img { visibility: hidden; }
+}
 .project .shot .sim { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; opacity: 0; transition: opacity 0.8s ease; background: var(--bg); }
 .project .shot .sim.on { opacity: 1; }
 .sim .cv { position: relative; min-height: 0; overflow: hidden; }

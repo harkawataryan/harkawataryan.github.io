@@ -32,7 +32,8 @@
       <ol>${POLICIES.map((p) => `<li data-p="${p.id}"><span class="nm">${p.name}<small>${p.note}</small></span><span class="track"><i></i></span><span class="val">–</span></li>`).join('')}</ol>
     </div>`;
   const cv = sim.querySelector('canvas'), ctx = cv.getContext('2d');
-  if (!ctx) return;
+  // No canvas: leave the screenshot showing instead of an empty card.
+  if (!ctx) { shot.classList.add('no-sim'); return; }
 
   // One shared traffic script so every policy sees the same requests.
   let rate = 7;
